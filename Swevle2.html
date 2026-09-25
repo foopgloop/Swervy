@@ -213,6 +213,7 @@ body.touch #flip .k-touch{display:inline}
 .board li{display:grid;grid-template-columns:26px 1fr auto auto;gap:12px;align-items:center;padding:10px 2px;border-bottom:1px solid var(--line)}
 .board .rk{font:700 12px/1 var(--mono);color:var(--muted)}
 .board .nm{font:700 14px/1.25 var(--ui);display:flex;align-items:center;gap:8px;min-width:0}
+.board .car-ic{flex:none;width:88px;height:55px;margin:-10px 0;filter:drop-shadow(0 2px 2px rgba(19,32,42,.18))}
 .board .nm small{font:600 11px var(--ui);color:var(--muted)}
 .board .tm{font:700 15px/1 var(--mono);font-variant-numeric:tabular-nums}
 .board li.me .nm{color:var(--go-dark)}
@@ -2580,6 +2581,48 @@ function makeCarMesh(color, ghost, tex) {
   root.userData = { tilt, pivots, wheels, paint, paintMat, paintMesh, head, tail, mats };
   return root;
 }
+// leaderboard thumbnails: the real car model with each driver's paint, rendered once per paint job
+const carIconCache = new Map();
+let iconRig = null;
+function carIconTex(s) {
+  if (s.id === 'rival') return paintTextureFor(null, '#35d0c0');
+  if (s.id === 'ultra') return paintTextureFor(null, '#c084fc');
+  if (s.me && myPaintTex) return myPaintTex;
+  const d = s.uid ? net.drivers.get(s.uid) : null;
+  return paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, s.color || cleanColor(d && d.color));
+}
+function carIcon(s) {
+  let tex;
+  try { tex = carIconTex(s); } catch (e) { return null; }
+  if (!tex) return null;
+  const key = tex.uuid + ':' + tex.version;
+  if (carIconCache.has(key)) return carIconCache.get(key);
+  try {
+    if (!iconRig) {
+      const r = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+      r.setPixelRatio(1); r.setSize(352, 220, false); r.setClearColor(0x000000, 0);
+      if ('outputEncoding' in r) r.outputEncoding = renderer.outputEncoding;
+      const sc = new THREE.Scene();
+      sc.add(new THREE.HemisphereLight(0xfdfbf0, 0x6b6f5c, 0.85));
+      const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(6, 10, 8); sc.add(sun);
+      const rim = new THREE.DirectionalLight(0xcfe6ff, 0.35); rim.position.set(-8, 4, -6); sc.add(rim);
+      const shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 32), new THREE.MeshBasicMaterial({ color: 0x0b1419, transparent: true, opacity: 0.28, depthWrite: false }));
+      shadow.rotation.x = -Math.PI / 2; shadow.scale.set(1.5, 2.6, 1); shadow.position.y = 0.01; sc.add(shadow);
+      const mesh = makeCarMesh(0xffffff, false, tex); sc.add(mesh);
+      const cam = new THREE.PerspectiveCamera(17, 352 / 220, 0.1, 100);
+      cam.position.set(7.6, 4.6, 9.4); cam.lookAt(0, 0.95, 0);
+      iconRig = { r, sc, cam, mesh };
+    }
+    const u = iconRig.mesh.userData;
+    u.paintMat.map = tex; u.paintMat.color.setHex(0xffffff); u.paintMat.needsUpdate = true;
+    u.paint.color.setHex(tex.pillar != null ? tex.pillar : 0xf2b632);
+    iconRig.r.render(iconRig.sc, iconRig.cam);
+    const url = iconRig.r.domElement.toDataURL('image/png');
+    if (carIconCache.size > 200) carIconCache.clear();
+    carIconCache.set(key, url);
+    return url;
+  } catch (e) { console.error('Daily Swerve: car icon failed', e); carIconCache.set(key, null); return null; }
+}
 function labelSprite(text, color) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 56;
   const g = cv.getContext('2d');
@@ -3435,6 +3478,8 @@ function renderBoard(list, sub) {
     const medal = s.id !== 'rival' && s.id !== 'ultra' ? medalFor(s.t) : null;
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
     const nm = document.createElement('span'); nm.className = 'nm';
+    const icon = carIcon(s);
+    if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
     if (medal) { const m = document.createElement('i'); m.className = 'medal ' + medal.cls; nm.append(m); }
     nm.append(document.createTextNode(s.name));
     if (s.sub) { const sm = document.createElement('small'); sm.textContent = s.sub; nm.append(sm); }
