@@ -964,7 +964,7 @@ const CGY = 1.36;                                        // centre of mass above
 const WHEEL_R = 0.34, SUS_TOP = 0.78, SUS_LEN = 0.62, SUS_K = 34, SUS_C = 2.6;   // soft and bouncy
 const WHEELS = [[0.9, 1.38, 1], [-0.9, 1.38, 1], [0.9, -1.32, 0], [-0.9, -1.32, 0]];   // local x (+ is left), z (+ is front), front wheel?
 const INERTIA_X = 1.9, INERTIA_Y = 2.1, INERTIA_Z = 0.62;                             // pitch, yaw, roll
-const ROLL_ASSIST = 0, ARB = 4;                                // lifts tyre forces a little toward the CG; lower is tippier
+const ROLL_ASSIST = 0, ARB = 4, PITCH_ASSIST = 0.7;   // drive and brake forces act partway up toward the CG: less dive and squat                                // lifts tyre forces a little toward the CG; lower is tippier
 const BODY_PTS = [];
 for (const x of [-1.05, 1.05]) for (const z of [-2.15, 2.15]) BODY_PTS.push([x * 0.95, 0.6, z], [x, 1.15, z]);   // the sill sits high enough that the car pivots on its tyres and can roll
 for (const x of [-1.0, 1.0]) for (const z of [-1.8, 0.8]) BODY_PTS.push([x, 2.0, z]);
@@ -1027,6 +1027,9 @@ function stepCar(c, inp, dt) {
   };
   let contacts = 0, left = 0, right = 0, rampC = false, rearSlip = 0, surf = null;
   const back = -vfB * 3.6;
+  // brakes squeeze on over a third of a second instead of grabbing, and reverse waits until you've been stopped a moment
+  c.brk = inp.brake && vfB > 0.5 ? Math.min(1, (c.brk || 0) + dt / 0.25) : 0;
+  c.revT = inp.brake && vfB <= 0.5 ? (c.revT || 0) + dt : 0;
 
   for (let k = 0; k < 4; k++) {
     const W = WHEELS[k], front = W[2] === 1;
@@ -1072,8 +1075,9 @@ function stepCar(c, inp, dt) {
     if (inp.throttle && vfB < -0.5) fF -= Math.sign(vF) * abs;
     else if (drive) fF += Math.min(9, 45 / Math.max(Math.abs(vfB), 1));   // all-wheel drive; the push tapers with speed like a real engine
     if (inp.brake) {
-      if (vfB > 0.5) fF -= Math.sign(vF) * abs;
-      else if (back > 30 || -vfB < REV_MAX) fF -= 3;                            // past 30 km/h backwards it keeps going
+      if (vfB > 0.5) fF -= Math.sign(vF) * Math.min(stopF, limF * 0.62) * (0.4 + 0.6 * c.brk);
+      else if (c.revT > 0.3 && (back > 30 || -vfB < REV_MAX)) fF -= 3;          // past 30 km/h backwards it keeps going
+      else if (c.revT <= 0.3) fF -= Math.sign(vF) * Math.min(stopF, limF * 0.3);  // hold still for a beat before reversing
     }
     if (!inp.throttle && !inp.brake) fF -= Math.sign(vF) * Math.min(S.roll / 4, stopF);
     if (inp.hand && !front) fF = -Math.sign(vF) * stopF;                        // locked rear wheels
@@ -1090,8 +1094,8 @@ function stepCar(c, inp, dt) {
     c.spin[k] = vF;
 
     add(px, py, pz, up.x * Fs, up.y * Fs, up.z * Fs);
-    add(px + (c.x - px) * ROLL_ASSIST, py + (c.y - py) * ROLL_ASSIST, pz + (c.z - pz) * ROLL_ASSIST,
-        wfx * fF + wsx * fL, wfy * fF + wsy * fL, wfz * fF + wsz * fL);
+    add(px + (c.x - px) * ROLL_ASSIST, py + (c.y - py) * ROLL_ASSIST, pz + (c.z - pz) * ROLL_ASSIST, wsx * fL, wsy * fL, wsz * fL);
+    add(px + (c.x - px) * PITCH_ASSIST, py + (c.y - py) * PITCH_ASSIST, pz + (c.z - pz) * PITCH_ASSIST, wfx * fF, wfy * fF, wfz * fF);
   }
 
   const hs = Math.hypot(c.vx, c.vz);
@@ -2071,40 +2075,77 @@ function buildShortcuts() {
   return grp;
 }
 
-// roadside billboards with the day's top times, like leaderboard cards along the route
+// roadside billboards with the day's top times, like leaderboard cards along the route; they redraw whenever the board changes
+let signBoards = [];
+function drawSign(sb, e, n) {
+  const g = sb.cv.getContext('2d'), W = 512, H = 288;
+  g.fillStyle = '#13202a'; g.fillRect(0, 0, W, H);
+  g.fillStyle = n === 0 ? '#ffc93c' : n === 1 ? '#c9d1d6' : '#d49a6a'; g.fillRect(0, 0, W, 64);
+  g.fillStyle = '#13202a'; g.font = '44px Anton, Impact, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
+  g.fillText('#' + (n + 1) + ' TODAY', 24, 34);
+  g.textAlign = 'right'; g.font = '800 20px Archivo, system-ui, sans-serif'; g.fillText('LIVE', W - 22, 34);
+  g.beginPath(); g.fillStyle = '#1f9d5b'; g.arc(W - 86, 34, 7, 0, Math.PI * 2); g.fill();
+  g.textAlign = 'left';
+  if (!e) {
+    g.fillStyle = '#5b686e'; g.font = '56px Anton, Impact, sans-serif'; g.fillText('OPEN SPOT', 24, 140);
+    g.font = '700 26px Archivo, system-ui, sans-serif'; g.fillText('Finish a run to get on the board', 24, 222);
+  } else {
+    const tx = sb.icon ? 196 : 24;
+    g.fillStyle = '#ffffff';
+    let nm = String(e.name).toUpperCase().slice(0, 16), fs = 58;
+    g.font = fs + 'px Anton, Impact, sans-serif';
+    while (fs > 34 && g.measureText(nm).width > W - tx - 20) { fs -= 2; g.font = fs + 'px Anton, Impact, sans-serif'; }
+    while (nm.length > 3 && g.measureText(nm).width > W - tx - 20) nm = nm.slice(0, -1);
+    g.fillText(nm, tx, 134);
+    g.fillStyle = '#ffc93c'; g.font = '700 54px "JetBrains Mono", Consolas, monospace';
+    g.fillText(fmt(e.t), tx, 222);
+    if (sb.icon) g.drawImage(sb.icon, 8, 96, 180, 112);
+  }
+  sb.tex.needsUpdate = true;
+}
+function refreshSigns() {
+  if (!signBoards.length || !T || mp.active) return;
+  const top = boardEntries().slice(0, signBoards.length);
+  signBoards.forEach((sb, n) => {
+    const e = top[n] || null, key = e ? e.id + '|' + e.name + '|' + e.t + '|' + (e.color || '') : 'none';
+    if (sb.key === key) return;
+    sb.key = key; sb.icon = null;
+    drawSign(sb, e, n);
+    const url = e ? carIcon(e) : null;
+    if (url) { const im = new Image(); im.onload = () => { if (sb.key === key) { sb.icon = im; drawSign(sb, e, n); } }; im.src = url; }
+  });
+}
 function buildSigns() {
   const grp = new THREE.Group();
-  const top = boardEntries().slice(0, 3);
+  signBoards = [];
   const spots = [T.cps[0] + 16, T.cps[2] + 16, T.cps[Math.min(4, T.cps.length - 2)] + 16];
   const postM = new THREE.MeshLambertMaterial({ color: 0x3a434c }), backM = new THREE.MeshLambertMaterial({ color: 0x13202a });
-  top.forEach((e, n) => {
-    const i = clamp(spots[n], 20, T.N - 30), side = n % 2 ? -1 : 1, l = side * (HALF_W + 6);
+  spots.forEach((spot, n) => {
+    const i = clamp(spot, 20, T.N - 30), side = n % 2 ? -1 : 1, l = side * (HALF_W + 6);
     const cv = document.createElement('canvas'); cv.width = 512; cv.height = 288;
-    const g = cv.getContext('2d');
-    g.fillStyle = '#13202a'; g.fillRect(0, 0, 512, 288);
-    g.fillStyle = n === 0 ? '#ffc93c' : '#eeeee5'; g.fillRect(0, 0, 512, 64);
-    g.fillStyle = '#13202a'; g.font = '44px Anton, Impact, sans-serif'; g.textBaseline = 'middle';
-    g.fillText('#' + (n + 1) + ' TODAY', 24, 34);
-    g.fillStyle = '#ffffff'; g.font = '64px Anton, Impact, sans-serif';
-    g.fillText(String(e.name).toUpperCase().slice(0, 16), 24, 134);
-    g.fillStyle = '#ffc93c'; g.font = '700 58px "JetBrains Mono", Consolas, monospace';
-    g.fillText(fmt(e.t), 24, 222);
     const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
     const faceM = new THREE.MeshLambertMaterial({ map: tex });
     const sign = new THREE.Group();
     sign.position.set(T.X[i] - T.TZ[i] * l, groundY(T.X[i] - T.TZ[i] * l, T.Z[i] + T.TX[i] * l, i), T.Z[i] + T.TX[i] * l);
     sign.rotation.y = T.HEAD[i] + Math.PI - side * 0.35;   // angled to face oncoming cars
-    for (const px of [-2.4, 2.4]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5.2, 0.3), postM); post.position.set(px, 2.6, 0); post.castShadow = true; sign.add(post); }
+    // the posts stand behind the board and stop at its middle, so nothing crosses the face
+    for (const px of [-2.2, 2.2]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5.4, 0.3), postM); post.position.set(px, 2.7, -0.34); post.castShadow = true; sign.add(post);
+    }
+    const brace = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.22, 0.16), postM); brace.position.set(0, 4.3, -0.3); sign.add(brace);
     const board = new THREE.Mesh(new THREE.BoxGeometry(6.4, 3.6, 0.25), [backM, backM, backM, backM, faceM, backM]);
     board.position.y = 5.4; board.castShadow = true; sign.add(board);
     grp.add(sign);
+    signBoards.push({ cv, tex, key: null, icon: null });
   });
   grp.traverse(o => { o.updateMatrix(); o.matrixAutoUpdate = false; });
   grp.updateMatrixWorld(true);
+  refreshSigns();
   return grp;
 }
 
 function buildWorld() {
+  signBoards = [];
   if (world) { scene.remove(world); disposeTree(world); }
   gateMats.length = 0;
   world = new THREE.Group();
@@ -2747,6 +2788,7 @@ function finishRace() {
   lastRunFrames = rec;
   runs.push(entry);
   saveRuns(raceKey, runs);
+  refreshSigns();
   const rank = runs.indexOf(entry) + 1;
   if (rank === 1 && !ghostSel.includes('me')) ghostSel.push('me');
   const posting = postTime(raceKey, entry);
@@ -2829,6 +2871,7 @@ function refreshBoards() {
   if (!T) return;
   if (!$('#menu').hidden) renderBoard($('#m-board'), $('#m-board-sub'));
   if (modalKind === 'board') renderModalBoard();
+  refreshSigns();
   if (state === 'title') renderTitle();
 }
 function netError(e) {
