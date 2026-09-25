@@ -246,6 +246,28 @@ body.touch #flip .k-touch{display:inline}
 .board.rank .tm small{display:block;margin-top:3px;font:700 9px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .board li.top1 .rk{color:var(--gold);font-weight:800} .board li.top2 .rk{color:#8f9aa1;font-weight:800} .board li.top3 .rk{color:var(--bronze);font-weight:800}
 .mb-tabs{margin:2px 0 10px}
+.ach-list li{grid-template-columns:34px 1fr auto!important}
+.ach-list .ic{font-size:22px;text-align:center}
+.ach-list .nm{flex-direction:column;align-items:flex-start!important;gap:3px}
+.ach-list .nm b{font:800 13.5px/1.2 var(--ui)}
+.ach-list .nm small{font:600 11px/1.3 var(--ui);color:var(--muted)}
+.ach-list li:not(.got):not(.rec){opacity:.62}
+.ach-list li.got .tm{color:var(--good);font-size:18px}
+.ach-list .tm{font:800 12px/1 var(--mono);white-space:nowrap}
+.ach-hint{margin-top:10px;text-align:center}
+.ach-pop{position:fixed;z-index:12;top:18px;left:50%;transform:translate(-50%,-140%);display:flex;align-items:center;gap:12px;padding:10px 18px 10px 12px;border-radius:12px;background:var(--ink);color:#fff;box-shadow:0 14px 30px -10px rgba(0,0,0,.5);transition:transform .45s cubic-bezier(.3,1.4,.5,1)}
+.ach-pop.in{transform:translate(-50%,0)}
+.ach-pop i{font-style:normal;font-size:30px}
+.ach-pop small{display:block;font:800 9.5px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:#ffd36b;margin-bottom:4px}
+.ach-pop b{font:400 20px/1 var(--display);text-transform:uppercase;letter-spacing:.02em}
+.ach-pop span{margin-left:10px;font:800 13px/1 var(--mono);color:#ffd36b}
+.comic{position:fixed;z-index:11;pointer-events:none;font:800 30px/1 "Comic Sans MS","Comic Neue",cursive;text-shadow:0 2px 0 #fff,0 0 14px rgba(255,255,255,.8);transform:rotate(-8deg);animation:comicPop 2.2s ease-out forwards}
+@keyframes comicPop{0%{opacity:0;transform:rotate(-8deg) scale(.4)}15%{opacity:1;transform:rotate(-8deg) scale(1.1)}80%{opacity:1}100%{opacity:0;transform:rotate(-8deg) translateY(-30px)}}
+.doge-drop{position:fixed;z-index:11;top:-160px;pointer-events:none;animation:dogeFall linear forwards}
+@keyframes dogeFall{to{transform:translateY(calc(100vh + 200px)) rotate(540deg)}}
+.goose{position:fixed;z-index:11;bottom:40px;left:-80px;font-size:64px;pointer-events:none;animation:gooseRun 3s linear forwards}
+@keyframes gooseRun{50%{transform:translateY(-14px)}to{left:calc(100vw + 80px)}}
+.honk-big{position:fixed;z-index:11;left:50%;top:40%;transform:translate(-50%,-50%);font:400 120px/1 var(--display);color:#fff;-webkit-text-stroke:4px var(--ink);pointer-events:none;animation:comicPop 1.4s ease-out forwards}
 .doge-peek{position:fixed;z-index:9;left:-40px;bottom:-230px;width:190px;padding:0;border:0;background:none;cursor:pointer;transition:bottom .6s cubic-bezier(.3,1.5,.5,1),transform .25s}
 .doge-peek.in{bottom:-70px}
 .doge-peek img{width:100%;display:block;transform:rotate(14deg);filter:drop-shadow(0 8px 14px rgba(0,0,0,.35));pointer-events:none}
@@ -440,7 +462,7 @@ body.touch .key-legend{display:none}
     <div class="key"><span><kbd>G</kbd></span>Ghosts</div>
     <div class="key"><span><kbd>L</kbd></span>Lights</div>
   </div>
-  <nav class="foot"><button class="link" data-open="howto">How to play</button><button class="link" data-open="settings">Settings</button></nav>
+  <nav class="foot"><button class="link" data-open="ach">🏆 Achievements</button><button class="link" data-open="howto">How to play</button><button class="link" data-open="settings">Settings</button></nav>
 </section>
 
 <section id="finish" class="panel card" hidden aria-labelledby="f-time">
@@ -2633,6 +2655,7 @@ function renderShop() {
   });
 }
 function buyCos(it) {
+  if (it.id === 'shiba') setTimeout(() => unlock('goodboy'), 900);
   if (wallet.owned.includes(it.id) || wallet.coins < it.price) return;
   wallet.coins -= it.price; wallet.owned.push(it.id); wallet.cos[it.slot] = it.id; cosPreview = null;
   saveWallet(); refreshMyCosmetics(); renderShop();
@@ -3212,6 +3235,7 @@ function simStep() {
   if (state === 'racing' || state === 'finished') clock += DT;
   if (state !== 'racing') return;
   raceTime += DT;
+  trackStats(DT);
   if (++recCounter % 4 === 0) snap(car, rec);
   const ci = T.cps[nextCp];
   if (car.idx >= ci && car.idx < ci + 25 && Math.abs(car.lat) < HALF_W + 6) passCheckpoint();
@@ -3270,14 +3294,15 @@ function finishRace() {
   orbitA = car.h + Math.PI;
   beep(784, 0.12, 0.1); setTimeout(() => beep(1175, 0.22, 0.1), 130);
   showBig('FINISH', 1100);
-  if (mp.active) { lastRunFrames = rec; mpFinish(); return; }
-  if (secret.active) { lastRunFrames = rec; secretFinish(); return; }
+  if (mp.active) { lastRunFrames = rec; statsFinish(null, null); mpFinish(); return; }
+  if (secret.active) { lastRunFrames = rec; statsFinish(null, null); secretFinish(); return; }
   const runs = getRuns(raceKey), prevBest = runs.length ? runs[0].t : null;
   const entry = { t: +finishTime.toFixed(3), splits: splits.map(s => +s.toFixed(3)), ts: Date.now(), g: rec };
   lastRunFrames = rec;
   runs.push(entry);
   saveRuns(raceKey, runs);
   dailyCoins(entry, prevBest);
+  statsFinish(entry, prevBest);
   refreshSigns();
   const rank = runs.indexOf(entry) + 1;
   if (rank === 1 && !ghostSel.includes('me')) ghostSel.push('me');
@@ -3337,6 +3362,7 @@ async function pullAccount() {
       wallet.coins = Math.max(0, Math.floor(d.coins));
       wallet.owned = [...new Set([...(Array.isArray(d.owned) ? d.owned : []), ...wallet.owned])].filter(id => COS[id]);
       wallet.cos = cleanCos(d.cos);
+      mergeStats(d);
       saveWallet(false); refreshMyCosmetics();
     } else saveWallet();   // first sign-in on this account: bring this browser's coins along
     if (typeof d.paint === 'string' && decodePaint(d.paint, MY_PAINT)) { store.set('ds:paint', d.paint); refreshMyPaint(); }
@@ -4050,6 +4076,7 @@ function mpFinish() {
   const inc = firebase.firestore.FieldValue.increment;
   netQueue(() => net.db.doc('drivers/' + net.uid).update({ 'mp.races': inc(1), 'mp.wins': inc(win ? 1 : 0) })).catch(netError);
   awardCoins(win ? 40 : 10, win ? 'for the win' : 'for racing');
+  stats.mpRaces++; if (win) stats.mpWins++; saveStats(); checkAch();
   if (win) confetti();
   setTimeout(() => { if (mp.active) openModal('mpres'); }, 1200);
 }
@@ -4216,6 +4243,7 @@ function secretStep() {
   if (car.y < T.Y[Math.min(car.idx, T.N - 1)] - 9) { recover(); toast('Splash! Back to the last checkpoint'); }
 }
 function secretFinish() {
+  unlock('doge');
   const t = +finishTime.toFixed(3), best = store.get('ds:dogeBest', null), first = !store.get('ds:dogePaint', false);
   if (best == null || t < best) store.set('ds:dogeBest', t);
   store.set('ds:dogePaint', true); fillPresetSelect();
@@ -4224,6 +4252,193 @@ function secretFinish() {
   setTimeout(() => { if (secret.active) openModal('secretdone'); }, 1100);
 }
 function secretExit() { secret.active = false; closeModal(); loadRace(todayKey); }
+
+
+/* ---------------- records, achievements and easter eggs ---------------- */
+// records are lifetime stats kept in the browser and on the account (drivers/<uid>.stats, .ach)
+const STAT0 = { finishes: 0, km: 0, topSpeed: 0, bestAir: 0, bestDrift: 0, flips: 0, golds: 0, ultras: 0, pbs: 0, mpRaces: 0, mpWins: 0, honks: 0, days: [] };
+const stats = Object.assign({}, STAT0, store.get('ds:stats', {}));
+if (!Array.isArray(stats.days)) stats.days = [];
+const achGot = new Set((store.get('ds:ach', []) || []).filter(x => typeof x === 'string'));
+const ACHS = [
+  // [id, icon, name, how, coins, test(stats) or null for event-only]
+  ['first', '🏁', 'First lap', 'Finish a race', 20, s => s.finishes >= 1],
+  ['ten', '🔟', 'Regular', 'Finish 10 races', 50, s => s.finishes >= 10],
+  ['fifty', '🛣️', 'Road warrior', 'Finish 50 races', 150, s => s.finishes >= 50],
+  ['pb', '📈', 'Getting better', 'Beat your own best time', 20, s => s.pbs >= 1],
+  ['gold', '🥇', 'Golden', 'Beat the pace car for gold', 50, s => s.golds >= 1],
+  ['ultra', '🟣', 'Faster than the machine', 'Beat the ultra pace car', 150, s => s.ultras >= 1],
+  ['ton', '💨', 'Ton-fifty', 'Hit 150 km/h', 30, s => s.topSpeed >= 150],
+  ['ludicrous', '🚀', 'Ludicrous speed', 'Hit 200 km/h', 100, s => s.topSpeed >= 200],
+  ['air2', '🪂', 'Frequent flyer', '2 seconds in the air in one jump', 40, s => s.bestAir >= 2],
+  ['air4', '🐕', 'Such air. Wow.', '4 seconds in the air in one jump', 120, s => s.bestAir >= 4],
+  ['drift3', '↪️', 'Sideways', 'Hold one drift for 3 seconds', 30, s => s.bestDrift >= 3],
+  ['drift6', '🌀', 'Tokyo drift', 'Hold one drift for 6 seconds', 100, s => s.bestDrift >= 6],
+  ['km10', '🗺️', '10 km club', 'Drive 10 km in races', 50, s => s.km >= 10],
+  ['km100', '🌍', 'Century', 'Drive 100 km in races', 250, s => s.km >= 100],
+  ['flip', '🥞', 'Pancake', 'Roll your car over', 20, s => s.flips >= 1],
+  ['flip25', '🙃', 'Professional stunt double', 'Roll over 25 times', 75, s => s.flips >= 25],
+  ['days3', '📅', 'Daily driver', 'Race on 3 different days', 60, s => s.days.length >= 3],
+  ['days7', '🗓️', 'Week streak', 'Race on 7 different days', 150, s => s.days.length >= 7],
+  ['mp', '🤝', 'Party animal', 'Finish a multiplayer race', 30, s => s.mpRaces >= 1],
+  ['mpwin', '🏆', 'Champion', 'Win a multiplayer race', 60, s => s.mpWins >= 1],
+  ['mp10', '🎉', 'Life of the party', 'Win 10 multiplayer races', 250, s => s.mpWins >= 10],
+  ['doge', '🐶', 'Much secret', 'Clear the secret Doge Sky Run', 100, null],
+  ['goodboy', '🐕‍🦺', 'Good boy', 'Put a Shiba Inu on your roof', 20, null],
+  // easter eggs, kept hidden until found
+  ['konami', '🕹️', 'Up up down down', '???', 50, null, true],
+  ['goose', '🪿', 'Untitled Goose', '???', 30, null, true],
+  ['wow', '✨', 'Wow', '???', 30, null, true],
+  ['moonwalk', '🕺', 'Moonwalker', '???', 75, null, true]
+];
+let achDirty = false;
+function saveStats() { store.set('ds:stats', stats); store.set('ds:ach', [...achGot]); achDirty = true; }
+setInterval(() => {   // push records to the account now and then, not every frame
+  if (!achDirty || !net.db || !net.uid || !onlineName()) return;
+  achDirty = false;
+  netQueue(() => net.db.doc('drivers/' + net.uid).update({ stats: Object.assign({}, stats), ach: [...achGot] })).catch(() => {});
+}, 20000);
+function unlock(id) {
+  if (achGot.has(id)) return;
+  const a = ACHS.find(x => x[0] === id); if (!a) return;
+  achGot.add(id); saveStats();
+  achToast(a);
+  awardCoins(a[4], '· ' + a[2]);
+  if (modalKind === 'ach') renderAch();
+}
+function checkAch() { for (const a of ACHS) if (a[5] && !achGot.has(a[0]) && a[5](stats)) unlock(a[0]); }
+function achToast(a) {
+  const el = document.createElement('div'); el.className = 'ach-pop';
+  el.innerHTML = '<i></i><div><small>Achievement unlocked</small><b></b><span></span></div>';
+  el.querySelector('i').textContent = a[1]; el.querySelector('b').textContent = a[2]; el.querySelector('span').textContent = '+' + a[4] + ' 🪙';
+  document.body.append(el);
+  requestAnimationFrame(() => el.classList.add('in'));
+  try { beep(988, 0.1, 0.08); setTimeout(() => beep(1319, 0.18, 0.08), 110); } catch (e) {}
+  setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 500); }, 3600);
+}
+// pulled in by pullAccount: keep the better of this browser and the account
+function mergeStats(d) {
+  if (d && d.stats && typeof d.stats === 'object') {
+    for (const k in STAT0) if (k !== 'days' && typeof d.stats[k] === 'number') stats[k] = Math.max(stats[k] || 0, d.stats[k]);
+    if (Array.isArray(d.stats.days)) stats.days = [...new Set([...stats.days, ...d.stats.days])].slice(-400);
+  }
+  if (d && Array.isArray(d.ach)) d.ach.forEach(id => { if (typeof id === 'string') achGot.add(id); });
+  saveStats();
+}
+// per-physics-step tracking while racing
+const run = { air: 0, drift: 0, flipped: false, saidWow: false };
+function trackStats(dt) {
+  const kmh = Math.hypot(car.vx, car.vz) * 3.6;
+  stats.km += kmh / 3.6 * dt / 1000;
+  if (kmh > stats.topSpeed) stats.topSpeed = Math.round(kmh);
+  run.air = car.grounded ? 0 : run.air + dt;
+  if (run.air > stats.bestAir) stats.bestAir = +run.air.toFixed(2);
+  if (run.air > 2.5 && !run.saidWow) { run.saidWow = true; comicText('wow such air'); }
+  if (car.grounded) run.saidWow = false;
+  run.drift = car.drifting ? run.drift + dt : 0;
+  if (run.drift > stats.bestDrift) stats.bestDrift = +run.drift.toFixed(2);
+  if (car.flipped && !run.flipped) { stats.flips++; toast('🥞 Pancake\'d'); }
+  run.flipped = car.flipped;
+  if ((recCounter & 63) === 0) { checkAch(); store.set('ds:stats', stats); achDirty = true; }
+}
+function statsFinish(entry, prevBest) {
+  stats.finishes++;
+  const d = dateKey(new Date()); if (!stats.days.includes(d)) stats.days.push(d);
+  if (entry && prevBest != null && entry.t < prevBest) stats.pbs++;
+  const m = entry && medalFor(entry.t);
+  if (m && (m.cls === 'gold' || m.cls === 'ultra')) stats.golds++;
+  if (m && m.cls === 'ultra') stats.ultras++;
+  // crossing the line going backwards
+  const fwd = car.vx * Math.sin(car.h) + car.vz * Math.cos(car.h);
+  if (fwd < -2) unlock('moonwalk');
+  saveStats(); checkAch();
+}
+function renderAch() {
+  const c = $('#modal-content'), tab = renderAch.tab || 'ach';
+  c.querySelectorAll('#ach-tabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === tab)));
+  const list = $('#ach-list'); list.textContent = '';
+  if (tab === 'rec') {
+    const R = [['💨', 'Top speed', stats.topSpeed + ' km/h'], ['🪂', 'Biggest air', stats.bestAir.toFixed(2) + ' s'], ['↪️', 'Longest drift', stats.bestDrift.toFixed(2) + ' s'],
+      ['🗺️', 'Distance raced', stats.km.toFixed(1) + ' km'], ['🏁', 'Races finished', stats.finishes], ['📈', 'Personal bests', stats.pbs],
+      ['🥇', 'Gold medals', stats.golds], ['🟣', 'Ultra medals', stats.ultras], ['🥞', 'Times rolled over', stats.flips],
+      ['🤝', 'Multiplayer races', stats.mpRaces], ['🏆', 'Multiplayer wins', stats.mpWins], ['📅', 'Days raced', stats.days.length], ['📯', 'Honks', stats.honks]];
+    $('#ach-sub').textContent = 'Your lifetime records.';
+    R.forEach(([ic, nm, v]) => { const li = document.createElement('li'); li.className = 'rec'; li.innerHTML = '<span class="ic"></span><span class="nm"></span><span class="tm"></span>'; li.children[0].textContent = ic; li.children[1].textContent = nm; li.children[2].textContent = v; list.append(li); });
+    return;
+  }
+  const got = ACHS.filter(a => achGot.has(a[0])).length;
+  $('#ach-sub').textContent = got + ' of ' + ACHS.length + ' unlocked. Each one pays coins.';
+  ACHS.forEach(a => {
+    const has = achGot.has(a[0]), hidden = a[6] && !has;
+    const li = document.createElement('li'); li.className = 'achi' + (has ? ' got' : '');
+    li.innerHTML = '<span class="ic"></span><span class="nm"><b></b><small></small></span><span class="tm"></span>';
+    li.children[0].textContent = hidden ? '❔' : a[1];
+    li.querySelector('b').textContent = hidden ? 'Secret easter egg' : a[2];
+    li.querySelector('small').textContent = hidden ? 'Find it to unlock' : a[3];
+    li.children[2].textContent = has ? '✓' : '+' + a[4] + ' 🪙';
+    list.append(li);
+  });
+}
+
+// ---- easter eggs ----
+const eggs = { keys: [], typed: '', honkT: [], disco: 0 };
+const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+function hornSound() {
+  try {
+    const ctx = secret.audio || (secret.audio = new (window.AudioContext || window.webkitAudioContext)()), t = ctx.currentTime;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.02); g.gain.setValueAtTime(0.12, t + 0.22); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); g.connect(ctx.destination);
+    [392, 494].forEach(f => { const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + 0.32); });
+  } catch (e) {}
+}
+function comicText(txt) {
+  const el = document.createElement('div'); el.className = 'comic';
+  el.textContent = txt; el.style.left = (20 + Math.random() * 55) + 'vw'; el.style.top = (18 + Math.random() * 40) + 'vh';
+  el.style.color = ['#ff2fb3', '#35e0ff', '#ffd23f', '#8fd13f'][Math.floor(Math.random() * 4)];
+  document.body.append(el); setTimeout(() => el.remove(), 2200);
+}
+function dogeRain() {
+  for (let i = 0; i < 24; i++) {
+    const im = document.createElement('img'); im.src = DOGE_URL; im.crossOrigin = 'anonymous'; im.className = 'doge-drop';
+    im.style.left = Math.random() * 100 + 'vw'; im.style.width = (50 + Math.random() * 70) + 'px';
+    im.style.animationDuration = (1.8 + Math.random() * 1.8) + 's'; im.style.animationDelay = (Math.random() * 1.2) + 's';
+    document.body.append(im); setTimeout(() => im.remove(), 5000);
+  }
+  ['wow', 'such rain', 'very doge', 'much fall'].forEach((w, i) => setTimeout(() => comicText(w), 300 + i * 450));
+  secretSound(2);
+}
+function discoMode() {
+  eggs.disco = performance.now() + 15000;
+  toast('🕺 DISCO MODE 🪩'); confetti(); secretSound(3);
+  const tick = () => {
+    if (!carMesh) return;
+    const pm = carMesh.userData.paintMat;
+    if (performance.now() > eggs.disco) { pm.color.setHex(0xffffff); return; }
+    pm.color.setHSL((performance.now() / 700) % 1, 0.9, 0.62);
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+function goose() {
+  const g = document.createElement('div'); g.className = 'goose'; g.textContent = '🪿';
+  document.body.append(g); setTimeout(() => g.remove(), 3200);
+  const h = document.createElement('div'); h.className = 'honk-big'; h.textContent = 'HONK';
+  document.body.append(h); setTimeout(() => h.remove(), 1400);
+}
+addEventListener('keydown', (e) => {
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.repeat) return;
+  // Konami code: disco mode
+  eggs.keys.push(e.code); if (eggs.keys.length > KONAMI.length) eggs.keys.shift();
+  if (eggs.keys.join() === KONAMI.join()) { eggs.keys = []; discoMode(); unlock('konami'); }
+  // type "wow" anywhere outside a race: it rains Doges
+  if (/^Key[A-Z]$/.test(e.code) && state !== 'racing') { eggs.typed = (eggs.typed + e.code.slice(3)).slice(-3); if (eggs.typed === 'WOW') { eggs.typed = ''; dogeRain(); unlock('wow'); } }
+  // H honks; honk ten times in four seconds and a goose answers
+  if (e.code === 'KeyH') {
+    hornSound(); stats.honks++; achDirty = true; store.set('ds:stats', stats);
+    const now = performance.now(); eggs.honkT = eggs.honkT.filter(t => now - t < 4000); eggs.honkT.push(now);
+    if (eggs.honkT.length >= 10) { eggs.honkT = []; goose(); unlock('goose'); }
+  }
+});
 
 /* ---------------- ghosts ---------------- */
 function boardEntries() {
@@ -5019,6 +5234,7 @@ function openModal(kind) {
         <tr><td><kbd>C</kbd></td><td>Camera: chase, far, hood</td></tr>
         <tr><td><kbd>G</kbd></td><td>Ghosts on or off</td></tr>
         <tr><td><kbd>L</kbd></td><td>Headlights</td></tr>
+        <tr><td><kbd>H</kbd></td><td>Horn</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>Menu and leaderboard</td></tr>
       </tbody></table>
       <h3>Touch</h3>
@@ -5187,6 +5403,15 @@ function openModal(kind) {
     $('#mpq-pwset').onclick = () => { const v = $('#mpq-pw').value.trim(); mpSetLock(true, v); if (v) $('#mpq-pwrow').hidden = true; };
     $('#mpq-start').onclick = () => mpPressStart();
     renderMpQueue();
+    $('#modal').hidden = false;
+    return;
+  } else if (kind === 'ach') {
+    c.innerHTML = `<h2>Achievements</h2>
+      <div class="seg mb-tabs" id="ach-tabs"><button data-v="ach">Achievements</button><button data-v="rec">Records</button></div>
+      <p class="sub" id="ach-sub"></p><ol class="board ach-list" id="ach-list"></ol>
+      <p class="note ach-hint">Psst: some are easter eggs. Try your keyboard.</p>`;
+    c.querySelectorAll('#ach-tabs button').forEach(b => b.onclick = () => { renderAch.tab = b.dataset.v; renderAch(); });
+    renderAch();
     $('#modal').hidden = false;
     return;
   } else if (kind === 'secret') {
