@@ -1202,7 +1202,7 @@ function stepCar(c, inp, dt) {
       // steering gets first call on the grip; drive and brakes use what is left, so holding throttle never dulls the steering
       fL = clamp(fL, -lim, lim);
       const room = limF * Math.sqrt(Math.max(0, 1 - (fL / lim) * (fL / lim)));
-      fF = clamp(fF, -room, room);
+      fF = clamp(fF, -room, room * Math.max(1, inp.throttle));
     }
     if (!front) rearSlip += Math.abs(vS);
     c.spin[k] = vF;
@@ -1213,7 +1213,7 @@ function stepCar(c, inp, dt) {
   }
 
   const hs = Math.hypot(c.vx, c.vz);
-  Fx -= c.vx * hs * 0.0011; Fz -= c.vz * hs * 0.0011;
+  const dk = 0.0011 / (inp.throttle > 1 ? 2.25 : 1); Fx -= c.vx * hs * dk; Fz -= c.vz * hs * dk;
 
   // body against the ground: bumpers, doors and roof
   let body = false;
