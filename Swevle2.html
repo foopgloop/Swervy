@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Daily Swerve</title>
+<title>Swerrvle</title>
 <!-- Firebase (compat SDKs — keep the same collection()/doc()/onSnapshot() shape the game code already uses) -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -102,11 +102,31 @@ kbd{font:700 9px/1 var(--ui);min-width:20px;padding:5px 5px;border:1.5px solid v
 .g-hint kbd{background:rgba(20,32,40,.45);color:#fff;border-color:rgba(255,255,255,.7);box-shadow:none}
 .g-panel{pointer-events:auto;position:absolute;top:16px;right:16px;bottom:16px;width:300px;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
 .g-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.g-head h2{margin:0;font:400 34px/1 var(--display);text-transform:uppercase}
+.g-head h2{margin:0;font:400 28px/1 var(--display);text-transform:uppercase;min-width:0}
 .g-head .btn{min-height:40px;padding:0 18px}
 .g-panel .hl{color:var(--muted);margin-top:4px}
 .g-tools{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .g-row{display:flex;gap:6px}
+.g-paint{display:flex;flex-direction:column;gap:10px}
+.g-tabs{display:flex}
+.g-tabs button{flex:1}
+.gs-top{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--paper-2)}
+.gs-top b{font:800 18px/1 var(--mono);white-space:nowrap}
+.gs-top span{font:600 11px/1.35 var(--ui);color:var(--muted)}
+.gs-slots{display:flex;flex-wrap:wrap;gap:6px}
+.gs-slots button{flex:1;min-height:34px;border:1px solid var(--line);border-radius:4px;background:var(--paper-2);font:800 10.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
+.gs-slots button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.gs-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gs-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper-2);cursor:pointer;font:700 12px/1.2 var(--ui);color:var(--ink);text-align:center}
+.gs-item:hover{background:#fff}
+.gs-item .ic{font-size:30px;line-height:1}
+.gs-item small{font:800 10px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.gs-item.eq{border-color:var(--teal);box-shadow:inset 0 0 0 2px var(--teal)}
+.gs-item.eq small{color:var(--teal)}
+.gs-item.pv{border-color:var(--go);box-shadow:inset 0 0 0 2px var(--go)}
+.gs-item .buy{margin-top:2px;min-height:30px;padding:0 10px;border:0;border-radius:4px;background:var(--go);color:#fff;font:800 11px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+.gs-item .buy:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
+.gs-item.none .ic{opacity:.5}
 .g-row > *{flex:1}
 .g-tools button,.g-row button,.g-row select{min-height:36px;border:1px solid var(--line);border-radius:4px;background:var(--paper-2);font:800 11px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
 .g-tools button[aria-pressed="true"],.g-row button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -220,10 +240,19 @@ body.touch #flip .k-touch{display:inline}
 .board.rank .tm small{display:block;margin-top:3px;font:700 9px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .board li.top1 .rk{color:var(--gold);font-weight:800} .board li.top2 .rk{color:#8f9aa1;font-weight:800} .board li.top3 .rk{color:var(--bronze);font-weight:800}
 .mb-tabs{margin:2px 0 10px}
+.btn .coins{font:800 11px/1 var(--mono);letter-spacing:0;color:var(--muted);text-transform:none}
 .ccu{position:absolute;top:22px;right:24px;display:inline-flex;align-items:center;gap:6px;font:800 10px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--good)}
 .ccu i{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px rgba(31,157,91,.18)}
 .mpq-clock{display:flex;align-items:baseline;gap:10px;margin:4px 0 6px}
 .mpq-clock b{font:400 64px/1 var(--display);color:var(--go)}
+.watchbar{position:fixed;z-index:6;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:8px;border-radius:10px;background:var(--paper);box-shadow:0 18px 40px -12px rgba(5,20,26,.55);max-width:calc(100vw - 32px);flex-wrap:wrap;justify-content:center}
+.wb-arrow{width:44px;height:44px;border:1px solid var(--line);border-radius:6px;background:var(--paper-2);font:800 16px var(--ui);cursor:pointer;color:var(--ink)}
+.wb-arrow:hover{background:#fff}
+.wb-mid{display:flex;flex-direction:column;align-items:center;min-width:150px;padding:0 6px}
+.wb-eyebrow{font:800 9.5px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:5px}
+.wb-mid b{font:400 22px/1 var(--display);text-transform:uppercase;white-space:nowrap}
+.wb-btns{display:flex;gap:6px}
+.wb-btns .btn{min-height:40px;font-size:11px;padding:0 12px}
 .mpq-lead{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin-top:12px}
 .mpq-check{display:flex;align-items:center;gap:8px;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--paper-2);cursor:pointer;font:800 13px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase}
 .mpq-check input{width:18px;height:18px;accent-color:var(--go);margin:0}
@@ -352,7 +381,7 @@ body.touch .key-legend{display:none}
   <p class="note" id="t-next"></p>
   <button class="driver" id="t-driver" data-open="account"><b id="t-driver-name">Set a driver name</b><span id="t-driver-act">Sign up</span></button>
   <button id="b-race" class="btn go" disabled>Race now</button>
-  <div class="row2"><button class="btn" data-open="vehicle">Edit vehicle</button><button class="btn" data-open="past">Races</button></div>
+  <div class="row2"><button class="btn" data-open="vehicle">Customize <span class="coins" id="t-coins">🪙 0</span></button><button class="btn" data-open="past">Races</button></div>
   <div class="row2"><button class="btn dark" id="b-mp">Multiplayer</button><button class="btn dark" data-open="board">Leaderboard</button></div>
   <a class="btn yt" href="https://youtube.com/@NeoDogez" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#ff0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/><path fill="#fff" d="M9.6 15.6 15.8 12 9.6 8.4z"/></svg>Subscribe to NeoDogez</a>
   <div class="keys key-legend" aria-label="Controls">
@@ -391,7 +420,7 @@ body.touch .key-legend{display:none}
     <h2>Menu</h2>
     <button class="btn go" id="m-retry">Retry <kbd>F</kbd></button>
     <button class="btn" id="m-resume">Resume <kbd>Esc</kbd></button>
-    <button class="btn" data-open="vehicle">Edit vehicle</button>
+    <button class="btn" data-open="vehicle">Customize</button>
     <button class="btn" data-open="settings">Settings</button>
     <button class="btn" id="m-info">Route info</button>
     <button class="btn" data-open="past">Past races</button>
@@ -425,7 +454,14 @@ body.touch .key-legend{display:none}
 <div id="garage" hidden>
   <div class="g-hint">Paint on the car · Right-drag to orbit · Middle-drag to pan · Scroll to zoom · <kbd>C</kbd> to center</div>
   <aside class="g-panel panel" aria-label="Paint shop">
-    <div class="g-head"><h2>Your paint</h2><button class="btn go" id="g-done">Done</button></div>
+    <div class="g-head"><h2>Customize</h2><button class="btn go" id="g-done">Done</button></div>
+    <div class="seg g-tabs" id="g-tabs"><button data-gtab="paint" aria-pressed="true">Paint</button><button data-gtab="shop" aria-pressed="false">Shop</button></div>
+    <div id="g-shop" class="g-shop" hidden>
+      <div class="gs-top"><b id="gs-coins">🪙 0</b><span>Earn coins by racing: finishes, personal bests, medals and multiplayer wins.</span></div>
+      <div class="gs-slots" id="gs-slots"></div>
+      <div class="gs-grid" id="gs-grid"></div>
+    </div>
+    <div id="g-paint" class="g-paint">
     <p class="note" id="g-save-note"></p>
     <div class="hl">Tools</div>
     <div class="g-tools">
@@ -443,9 +479,16 @@ body.touch .key-legend{display:none}
     <div class="hl">Presets</div>
     <div class="g-row"><select id="g-preset" aria-label="Preset design"></select><button id="g-load">Load</button></div>
     <div class="g-row"><button id="g-zin" aria-label="Zoom in">Zoom +</button><button id="g-zout" aria-label="Zoom out">Zoom −</button><button id="g-center">Center</button></div>
+    </div>
   </aside>
 </div>
 
+<div id="watchbar" class="watchbar" hidden>
+  <button class="wb-arrow" id="wb-prev" aria-label="Previous racer">◀</button>
+  <div class="wb-mid"><span class="wb-eyebrow" id="wb-eyebrow">Spectating</span><b id="wb-name">—</b></div>
+  <button class="wb-arrow" id="wb-next" aria-label="Next racer">▶</button>
+  <div class="wb-btns"><button class="btn" id="wb-res">Results</button><button class="btn" id="wb-lobby">Lobby</button><button class="btn" id="wb-leave">Leave</button></div>
+</div>
 <div id="replay" hidden>
   <div class="rp-top"><span class="rec">Replay</span><span id="rp-time">0:00.000</span><span class="cam" id="rp-cam">TV</span></div>
   <div class="rp-bar">
@@ -1040,6 +1083,13 @@ function stepCar(c, inp, dt) {
   // brakes squeeze on over a third of a second instead of grabbing, and reverse waits until you've been stopped a moment
   c.brk = inp.brake && vfB > 0.5 ? Math.min(1, (c.brk || 0) + dt / 0.25) : 0;
   c.revT = inp.brake && vfB <= 0.5 ? (c.revT || 0) + dt : 0;
+  // braking stability assist: with wheels down, calm the pitch/roll rocking and (unless steering) the yaw, so hard braking never tips or spins the car
+  if (c.brk > 0 && c.grounded && !c.flipped) {
+    const k = Math.exp(-dt * 6); c.wx *= k; c.wz *= k;
+    // and lean against a roll: past ~12 degrees, bleed off sideways grip-driven roll rate harder
+    if (Math.abs(c.roll) > 0.2) { const kr = Math.exp(-dt * 18), fx = Math.sin(c.h), fz = Math.cos(c.h), rr = c.wx * fx + c.wz * fz; c.wx -= fx * rr * (1 - kr); c.wz -= fz * rr * (1 - kr); }
+    if (Math.abs(inp.steer) < 0.25) c.wy *= Math.exp(-dt * 4);
+  }
 
   for (let k = 0; k < 4; k++) {
     const W = WHEELS[k], front = W[2] === 1;
@@ -1085,7 +1135,7 @@ function stepCar(c, inp, dt) {
     if (inp.throttle && vfB < -0.5) fF -= Math.sign(vF) * abs;
     else if (drive) fF += Math.min(9, 45 / Math.max(Math.abs(vfB), 1));   // all-wheel drive; the push tapers with speed like a real engine
     if (inp.brake) {
-      if (vfB > 0.5) fF -= Math.sign(vF) * Math.min(stopF, limF * 0.62) * (0.4 + 0.6 * c.brk);
+      if (vfB > 0.5) fF -= Math.sign(vF) * Math.min(stopF, limF * (front ? 0.75 : 0.35)) * (0.4 + 0.6 * c.brk);   // front-biased like a real car, so the tail doesn't come round
       else if (c.revT > 0.3 && (back > 30 || -vfB < REV_MAX)) fF -= 3;          // past 30 km/h backwards it keeps going
       else if (c.revT <= 0.3) fF -= Math.sign(vF) * Math.min(stopF, limF * 0.3);  // hold still for a beat before reversing
     }
@@ -2406,7 +2456,7 @@ function setGrid(on) {
 }
 
 function openGarage() {
-  if (!T || !carMesh || state === 'loading' || mp.active) return;
+  if (!T || !carMesh || state === 'loading' || mp.active || mp.spec) return;
   closeModal(); closeMenu(); hideCards();
   $('#hud').hidden = true; $('#touch').hidden = true;
   car = spawnCar(); state = 'garage';
@@ -2415,7 +2465,56 @@ function openGarage() {
   renderGarage();
   $('#garage').hidden = false;
 }
+
+let shopSlot = 'roof', gTab = 'paint';
+function setGarageTab(t) {
+  gTab = t;
+  document.querySelectorAll('#g-tabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gtab === t)));
+  $('#g-paint').hidden = t !== 'paint'; $('#g-shop').hidden = t !== 'shop';
+  if (t === 'shop') { if (shop.tool !== 'orbit') { shop.prevTool = shop.tool; setTool('orbit'); } renderShop(); }
+  else { if (shop.prevTool) { setTool(shop.prevTool); shop.prevTool = null; } if (cosPreview) { cosPreview = null; refreshMyCosmetics(); } }
+}
+function renderShop() {
+  renderCoins();
+  const sl = $('#gs-slots'); sl.textContent = '';
+  COS_SLOTS.forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.setAttribute('aria-pressed', String(k === shopSlot)); b.onclick = () => { shopSlot = k; renderShop(); }; sl.append(b); });
+  const grid = $('#gs-grid'); grid.textContent = '';
+  const eq = wallet.cos[shopSlot];
+  const none = document.createElement('button'); none.className = 'gs-item none' + (!eq ? ' eq' : '');
+  none.innerHTML = '<span class="ic">🚫</span>None<small>' + (!eq ? 'Equipped' : 'Take off') + '</small>';
+  none.onclick = () => { cosPreview = null; delete wallet.cos[shopSlot]; saveWallet(); refreshMyCosmetics(); renderShop(); };
+  grid.append(none);
+  COS_ITEMS.filter(it => it.slot === shopSlot).forEach(it => {
+    const owned = wallet.owned.includes(it.id), on = eq === it.id, pv = cosPreview && cosPreview.id === it.id;
+    const el = document.createElement('div'); el.className = 'gs-item' + (on ? ' eq' : '') + (pv ? ' pv' : ''); el.tabIndex = 0;
+    const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = it.icon;
+    const nm = document.createElement('span'); nm.textContent = it.name;
+    const sm = document.createElement('small'); sm.textContent = on ? 'Equipped' : owned ? 'Owned · equip' : pv ? 'Previewing' : '🪙 ' + it.price;
+    el.append(ic, nm, sm);
+    if (pv && !owned) {
+      const b = document.createElement('button'); b.className = 'buy'; b.textContent = 'Buy · 🪙 ' + it.price; b.disabled = wallet.coins < it.price;
+      if (b.disabled) b.title = 'Not enough coins yet';
+      b.onclick = (e) => { e.stopPropagation(); buyCos(it); };
+      el.append(b);
+    }
+    el.onclick = () => {
+      if (owned) { cosPreview = null; if (on) delete wallet.cos[it.slot]; else wallet.cos[it.slot] = it.id; saveWallet(); }
+      else cosPreview = pv ? null : { slot: it.slot, id: it.id };
+      refreshMyCosmetics(); renderShop();
+    };
+    grid.append(el);
+  });
+}
+function buyCos(it) {
+  if (wallet.owned.includes(it.id) || wallet.coins < it.price) return;
+  wallet.coins -= it.price; wallet.owned.push(it.id); wallet.cos[it.slot] = it.id; cosPreview = null;
+  saveWallet(); refreshMyCosmetics(); renderShop();
+  toast('Bought ' + it.name + ' ' + it.icon);
+  confetti();
+}
+
 function closeGarage() {
+  if (gTab !== 'paint') setGarageTab('paint');
   const s = encodePaint(MY_PAINT);
   store.set('ds:paint', s);
   store.set('ds:recent', shop.recent);
@@ -2584,7 +2683,7 @@ function initGarage() {
   };
 }
 
-function makeCarMesh(color, ghost, tex) {
+function makeCarMesh(color, ghost, tex, cos) {
   const root = new THREE.Group(), tilt = new THREE.Group();
   root.add(tilt);
   const mats = [];
@@ -2639,6 +2738,7 @@ function makeCarMesh(color, ghost, tex) {
     piv.add(w); tilt.add(piv); pivots.push(piv); wheels.push(w);
   }
   root.userData = { tilt, pivots, wheels, paint, paintMat, paintMesh, head, tail, mats };
+  if (cos && cosSig(cos) !== ',,,,') applyCosmetics(root, cos, ghost);
   return root;
 }
 // leaderboard thumbnails: the real car model with each driver's paint, rendered once per paint job
@@ -2656,7 +2756,8 @@ function carIcon(s) {
   let tex;
   try { tex = carIconTex(s); } catch (e) { return null; }
   if (!tex) return null;
-  const key = tex.uuid + ':' + tex.version;
+  const cos = s.cos ? cleanCos(s.cos) : s.me ? myCos() : cleanCos((net.drivers.get(s.uid) || {}).cos);
+  const key = tex.uuid + ':' + tex.version + ':' + cosSig(cos);
   if (carIconCache.has(key)) return carIconCache.get(key);
   try {
     if (!iconRig) {
@@ -2670,20 +2771,241 @@ function carIcon(s) {
       const shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 32), new THREE.MeshBasicMaterial({ color: 0x0b1419, transparent: true, opacity: 0.28, depthWrite: false }));
       shadow.rotation.x = -Math.PI / 2; shadow.scale.set(1.5, 2.6, 1); shadow.position.y = 0.01; sc.add(shadow);
       const mesh = makeCarMesh(0xffffff, false, tex); sc.add(mesh);
-      const cam = new THREE.PerspectiveCamera(17, 352 / 220, 0.1, 100);
-      cam.position.set(7.6, 4.6, 9.4); cam.lookAt(0, 0.95, 0);
+      const cam = new THREE.PerspectiveCamera(19, 352 / 220, 0.1, 100);
+      cam.position.set(7.6, 5.0, 9.4); cam.lookAt(0, 1.15, 0);
       iconRig = { r, sc, cam, mesh };
     }
     const u = iconRig.mesh.userData;
     u.paintMat.map = tex; u.paintMat.color.setHex(0xffffff); u.paintMat.needsUpdate = true;
     u.paint.color.setHex(tex.pillar != null ? tex.pillar : 0xf2b632);
+    applyCosmetics(iconRig.mesh, cos, false);
     iconRig.r.render(iconRig.sc, iconRig.cam);
     const url = iconRig.r.domElement.toDataURL('image/png');
     if (carIconCache.size > 200) carIconCache.clear();
     carIconCache.set(key, url);
     return url;
-  } catch (e) { console.error('Daily Swerve: car icon failed', e); carIconCache.set(key, null); return null; }
+  } catch (e) { console.error('Swerrvle: car icon failed', e); carIconCache.set(key, null); return null; }
 }
+
+/* ---------------- cosmetics: coins, shop items, and the 3D bits they add to a car ---------------- */
+// slots: hood ornament, engine bay (pokes through the hood), roof topper, rear, sticker (decals on both doors and the hood)
+const COS_SLOTS = [['hood', 'Hood'], ['bay', 'Engine'], ['roof', 'Roof'], ['rear', 'Rear'], ['sticker', 'Stickers']];
+const COS_ITEMS = [
+  { id: 'star', slot: 'hood', name: 'Chrome star', price: 50, icon: '⭐' },
+  { id: 'flame', slot: 'hood', name: 'Flame', price: 80, icon: '🔥' },
+  { id: 'eagle', slot: 'hood', name: 'Golden eagle', price: 140, icon: '🦅' },
+  { id: 'crown', slot: 'hood', name: 'Crown', price: 180, icon: '👑' },
+  { id: 'stacks', slot: 'bay', name: 'Intake stacks', price: 140, icon: '🔩' },
+  { id: 'turbo', slot: 'bay', name: 'Twin turbos', price: 180, icon: '🌀' },
+  { id: 'blower', slot: 'bay', name: 'Supercharger', price: 220, icon: '⚙️' },
+  { id: 'cone', slot: 'roof', name: 'Traffic cone', price: 40, icon: '🚧' },
+  { id: 'duck', slot: 'roof', name: 'Rubber duck', price: 60, icon: '🦆' },
+  { id: 'cactus', slot: 'roof', name: 'Cactus', price: 70, icon: '🌵' },
+  { id: 'dice', slot: 'roof', name: 'Fuzzy dice', price: 80, icon: '🎲' },
+  { id: 'snowman', slot: 'roof', name: 'Mini snowman', price: 90, icon: '⛄' },
+  { id: 'shiba', slot: 'roof', name: 'Shiba Inu', price: 250, icon: '🐕' },
+  { id: 'ducktail', slot: 'rear', name: 'Ducktail', price: 90, icon: '🪽' },
+  { id: 'wing', slot: 'rear', name: 'GT wing', price: 160, icon: '🏁' },
+  { id: 'num7', slot: 'sticker', name: 'Racing 7', price: 30, icon: '7️⃣' },
+  { id: 'bolt', slot: 'sticker', name: 'Lightning', price: 40, icon: '⚡' },
+  { id: 'check', slot: 'sticker', name: 'Checker', price: 45, icon: '🏁' },
+  { id: 'paw', slot: 'sticker', name: 'Paw prints', price: 50, icon: '🐾' },
+  { id: 'flames', slot: 'sticker', name: 'Hot flames', price: 60, icon: '🔥' },
+  { id: 'neo', slot: 'sticker', name: 'NeoDogez', price: 75, icon: '🐶' }
+];
+const COS = Object.fromEntries(COS_ITEMS.map(it => [it.id, it]));
+function cleanCos(o) {
+  const out = {};
+  if (o && typeof o === 'object') for (const [slot] of COS_SLOTS) { const id = o[slot]; if (typeof id === 'string' && COS[id] && COS[id].slot === slot) out[slot] = id; }
+  return out;
+}
+const cosSig = (c) => COS_SLOTS.map(([k]) => (c && c[k]) || '').join(',');
+const wallet = { coins: store.get('ds:coins', 100), owned: store.get('ds:owned', []), cos: cleanCos(store.get('ds:cos', {})) };
+if (typeof wallet.coins !== 'number' || !(wallet.coins >= 0)) wallet.coins = 100;
+if (!Array.isArray(wallet.owned)) wallet.owned = [];
+wallet.owned = wallet.owned.filter(id => COS[id]);
+let cosPreview = null;   // shop preview: { slot, id } shown on the car but not bought
+const myCos = () => { const c = Object.assign({}, wallet.cos); if (cosPreview) { if (cosPreview.id) c[cosPreview.slot] = cosPreview.id; else delete c[cosPreview.slot]; } return c; };
+function saveWallet(push) {
+  store.set('ds:coins', wallet.coins); store.set('ds:owned', wallet.owned); store.set('ds:cos', wallet.cos);
+  renderCoins();
+  if (push !== false && net.db && net.uid && onlineName()) {
+    netQueue(() => net.db.doc('drivers/' + net.uid).update({ coins: wallet.coins, owned: wallet.owned.slice(), cos: Object.assign({}, wallet.cos) })).catch(() => {});
+  }
+}
+function awardCoins(n, why) {
+  if (!(n > 0)) return;
+  wallet.coins += n; saveWallet();
+  toast('+' + n + ' 🪙 ' + why);
+}
+function renderCoins() {
+  const el = $('#t-coins'); if (el) el.textContent = '🪙 ' + wallet.coins;
+  const g = $('#gs-coins'); if (g) g.textContent = '🪙 ' + wallet.coins;
+}
+// coins for a daily run: a little for every finish, more for a first finish, a personal best, or a new medal
+function dailyCoins(entry, prevBest) {
+  let n = 5, why = 'for finishing';
+  if (prevBest == null) { n += 15; why = 'first finish today'; }
+  else if (entry.t < prevBest) { n += 10; why = 'new personal best'; }
+  const m = medalFor(entry.t), rank = { bronze: 1, silver: 2, gold: 3, ultra: 4 }, bonus = { bronze: 5, silver: 10, gold: 20, ultra: 40 };
+  if (m && rank[m.cls]) {
+    const had = store.get('ds:medal:' + raceKey, 0);
+    if (rank[m.cls] > had) { n += bonus[m.cls]; why = m.name + ' medal'; store.set('ds:medal:' + raceKey, rank[m.cls]); }
+  }
+  awardCoins(n, why);
+}
+
+const _cosMats = {};
+function cosMat(key, make) { return _cosMats[key] || (_cosMats[key] = make()); }
+const _stickerTex = {};
+function stickerTex(id) {
+  if (_stickerTex[id]) return _stickerTex[id];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const g = cv.getContext('2d'); g.lineJoin = 'round';
+  const star = (cx, cy, R, r, fill, stroke) => { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.closePath(); g.fillStyle = fill; g.fill(); if (stroke) { g.lineWidth = 10; g.strokeStyle = stroke; g.stroke(); } };
+  if (id === 'num7') {
+    g.beginPath(); g.arc(128, 128, 110, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 14; g.strokeStyle = '#13202a'; g.stroke();
+    g.fillStyle = '#13202a'; g.font = 'bold 170px Anton, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('7', 128, 140);
+  } else if (id === 'bolt') {
+    g.beginPath(); [[150, 10], [60, 140], [120, 140], [96, 246], [196, 100], [134, 100], [168, 10]].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+    g.fillStyle = '#ffd23f'; g.fill(); g.lineWidth = 10; g.strokeStyle = '#13202a'; g.stroke();
+  } else if (id === 'check') {
+    for (let y = 0; y < 6; y++) for (let x = 0; x < 6; x++) { g.fillStyle = (x + y) % 2 ? '#13202a' : '#ffffff'; g.fillRect(20 + x * 36, 20 + y * 36, 36, 36); }
+    g.lineWidth = 8; g.strokeStyle = '#13202a'; g.strokeRect(20, 20, 216, 216);
+  } else if (id === 'paw') {
+    g.fillStyle = '#3a2418';
+    [[128, 160, 58, 48], [62, 96, 24, 30], [104, 62, 24, 30], [152, 62, 24, 30], [194, 96, 24, 30]].forEach(([x, y, rx, ry]) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); });
+  } else if (id === 'flames') {
+    const grd = g.createLinearGradient(0, 0, 256, 0); grd.addColorStop(0, '#ffe066'); grd.addColorStop(0.5, '#ff7a1a'); grd.addColorStop(1, '#d8281e');
+    g.fillStyle = grd; g.beginPath(); g.moveTo(0, 200);
+    for (let i = 0; i < 5; i++) { const y = 70 + i * 28; g.quadraticCurveTo(90 + i * 20, y - 40, 250 - i * 10, y); g.quadraticCurveTo(120 + i * 20, y + 10, 40, y + 20); }
+    g.lineTo(0, 236); g.closePath(); g.fill(); g.lineWidth = 6; g.strokeStyle = '#8a1a10'; g.stroke();
+  } else if (id === 'neo') {
+    g.fillStyle = '#ff0000'; g.fillRect(8, 78, 240, 100); g.lineWidth = 8; g.strokeStyle = '#fff'; g.strokeRect(8, 78, 240, 100);
+    g.fillStyle = '#fff'; g.font = 'bold 50px Anton, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NEODOGEZ', 128, 130);
+  } else star(128, 128, 118, 50, '#fff', '#13202a');
+  const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; KEEP_TEX.add(t);
+  return (_stickerTex[id] = t);
+}
+// builds the cosmetic parts as a group in car-local space (x left, y up, z forward; body top y 1.15, roof top y 2.07)
+function buildCosmetics(cos, ghost) {
+  const grp = new THREE.Group(); grp.name = 'cosmetics';
+  const L = (c) => cosMat('L' + c, () => new THREE.MeshLambertMaterial({ color: c }));
+  const chrome = cosMat('chrome', () => new THREE.MeshPhongMaterial({ color: 0xdfe4e8, specular: 0xffffff, shininess: 90 }));
+  const gold = cosMat('gold', () => new THREE.MeshPhongMaterial({ color: 0xf2b632, specular: 0xfff0b0, shininess: 70 }));
+  const put = (geo, mat, x, y, z, rx, ry, rz, sx, sy, sz) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0);
+    if (sx) m.scale.set(sx, sy || sx, sz || sx);
+    m.castShadow = !ghost; grp.add(m); return m;
+  };
+  const B = (w, h, d) => new THREE.BoxGeometry(w, h, d), S = (r) => new THREE.SphereGeometry(r, 12, 9);
+  const C = (r1, r2, h, n) => new THREE.CylinderGeometry(r1, r2, h, n || 10), K = (r, h, n) => new THREE.ConeGeometry(r, h, n || 10);
+  const HY = 1.15, RY = 2.07;
+  switch (cos.hood) {
+    case 'star': {
+      put(C(0.03, 0.04, 0.14), chrome, 0, HY + 0.07, 1.95);
+      const sh = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.06 : 0.15; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); }
+      const g = new THREE.ExtrudeGeometry(sh, { depth: 0.04, bevelEnabled: false }); g.translate(0, 0, -0.02);
+      put(g, chrome, 0, HY + 0.28, 1.95); break;
+    }
+    case 'flame':
+      put(K(0.09, 0.34, 7), L(0xff7a1a), 0, HY + 0.17, 1.9); put(K(0.06, 0.24, 7), L(0xffd23f), 0.08, HY + 0.12, 1.94, 0, 0, -0.3); put(K(0.06, 0.24, 7), L(0xffd23f), -0.08, HY + 0.12, 1.94, 0, 0, 0.3); break;
+    case 'eagle':
+      put(K(0.07, 0.3, 8), gold, 0, HY + 0.2, 1.96, Math.PI / 2 - 0.4); put(S(0.06), gold, 0, HY + 0.28, 2.08);
+      put(B(0.36, 0.03, 0.14), gold, 0.19, HY + 0.3, 1.9, 0, 0.25, 0.45); put(B(0.36, 0.03, 0.14), gold, -0.19, HY + 0.3, 1.9, 0, -0.25, -0.45);
+      put(C(0.03, 0.04, 0.12), gold, 0, HY + 0.06, 1.95); break;
+    case 'crown':
+      put(C(0.16, 0.14, 0.12, 12), gold, 0, HY + 0.08, 1.85);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; put(K(0.04, 0.14, 6), gold, Math.cos(a) * 0.14, HY + 0.2, 1.85 + Math.sin(a) * 0.14); put(S(0.03), L(0xd8324a), Math.cos(a) * 0.15, HY + 0.1, 1.85 + Math.sin(a) * 0.15); }
+      break;
+  }
+  switch (cos.bay) {
+    case 'stacks':
+      put(B(0.62, 0.1, 0.7), L(0x3a434c), 0, HY + 0.05, 1.35);
+      for (const x of [-0.2, 0.2]) for (let k = 0; k < 4; k++) put(C(0.055, 0.045, 0.3), chrome, x, HY + 0.24, 1.1 + k * 0.17);
+      break;
+    case 'turbo':
+      for (const x of [-0.38, 0.38]) { put(new THREE.TorusGeometry(0.13, 0.06, 8, 16), chrome, x, HY + 0.16, 1.45, 0, Math.PI / 2); put(C(0.06, 0.06, 0.4), chrome, x * 0.5, HY + 0.1, 1.45, 0, 0, Math.PI / 2); }
+      put(B(0.3, 0.12, 0.3), L(0x3a434c), 0, HY + 0.06, 1.45); break;
+    case 'blower':
+      put(B(0.72, 0.3, 0.55), chrome, 0, HY + 0.15, 1.35); put(B(0.5, 0.22, 0.34), L(0x1c2026), 0, HY + 0.41, 1.4);
+      put(B(0.2, 0.2, 0.05), L(0xd8281e), -0.12, HY + 0.42, 1.58); put(B(0.2, 0.2, 0.05), L(0xd8281e), 0.12, HY + 0.42, 1.58);
+      put(B(0.12, 0.34, 0.04), L(0x1c2026), 0.3, HY + 0.1, 1.64); break;
+  }
+  switch (cos.roof) {
+    case 'cone':
+      put(B(0.46, 0.05, 0.46), L(0x1c2026), 0, RY + 0.03, -0.3); put(K(0.2, 0.6, 12), L(0xff6a2b), 0, RY + 0.33, -0.3); put(C(0.12, 0.15, 0.1, 12), L(0xffffff), 0, RY + 0.3, -0.3); break;
+    case 'duck': {
+      const y = L(0xffd23f);
+      put(S(0.3), y, 0, RY + 0.24, -0.35, 0, 0, 0, 1, 0.75, 1.2); put(S(0.19), y, 0, RY + 0.58, -0.12);
+      put(B(0.2, 0.06, 0.16), L(0xff7a1a), 0, RY + 0.55, 0.06); put(S(0.035), L(0x13202a), 0.09, RY + 0.64, -0.01); put(S(0.035), L(0x13202a), -0.09, RY + 0.64, -0.01);
+      put(K(0.1, 0.16, 6), y, 0, RY + 0.36, -0.72, -1.1); break;
+    }
+    case 'cactus': {
+      const gr = L(0x3fbf5a);
+      put(C(0.2, 0.16, 0.2, 10), L(0xc0673a), 0, RY + 0.1, -0.3); put(C(0.1, 0.1, 0.6, 8), gr, 0, RY + 0.5, -0.3);
+      put(C(0.06, 0.06, 0.2, 8), gr, 0.16, RY + 0.5, -0.3, 0, 0, Math.PI / 2); put(C(0.06, 0.06, 0.22, 8), gr, 0.25, RY + 0.62, -0.3);
+      put(C(0.06, 0.06, 0.18, 8), gr, -0.15, RY + 0.4, -0.3, 0, 0, Math.PI / 2); put(C(0.06, 0.06, 0.2, 8), gr, -0.23, RY + 0.5, -0.3);
+      put(S(0.06), L(0xff8fb1), 0, RY + 0.82, -0.3); break;
+    }
+    case 'dice':
+      put(B(0.3, 0.3, 0.3), L(0xff8fb1), 0.2, RY + 0.15, -0.3, 0, 0.4); put(B(0.3, 0.3, 0.3), L(0xffffff), -0.2, RY + 0.15, -0.25, 0, -0.3);
+      for (const [x, z] of [[0.2, -0.14], [0.1, -0.2], [0.3, -0.08]]) put(S(0.035), L(0x13202a), x, RY + 0.31, z);
+      for (const [x, z] of [[-0.25, -0.2], [-0.15, -0.3]]) put(S(0.035), L(0xd8281e), x, RY + 0.31, z);
+      break;
+    case 'snowman': {
+      const w = L(0xf5f7fa);
+      put(S(0.28), w, 0, RY + 0.26, -0.3); put(S(0.2), w, 0, RY + 0.66, -0.3); put(S(0.14), w, 0, RY + 0.96, -0.3);
+      put(C(0.1, 0.1, 0.16, 12), L(0x1c2026), 0, RY + 1.16, -0.3); put(C(0.16, 0.16, 0.02, 12), L(0x1c2026), 0, RY + 1.08, -0.3);
+      put(K(0.035, 0.16, 6), L(0xff7a1a), 0, RY + 0.96, -0.1, Math.PI / 2);
+      put(S(0.025), L(0x13202a), 0.05, RY + 1.0, -0.17); put(S(0.025), L(0x13202a), -0.05, RY + 1.0, -0.17);
+      put(C(0.015, 0.015, 0.4, 5), L(0x6b4a2e), 0.33, RY + 0.72, -0.3, 0, 0, 1.0); put(C(0.015, 0.015, 0.4, 5), L(0x6b4a2e), -0.33, RY + 0.72, -0.3, 0, 0, -1.0);
+      put(B(0.3, 0.08, 0.08), L(0xd8281e), 0, RY + 0.84, -0.22); break;
+    }
+    case 'shiba': {
+      const o = L(0xd98c3c), cr = L(0xf6e7cf), bk = L(0x1c2026);
+      for (const [x, z] of [[0.1, -0.05], [-0.1, -0.05], [0.1, -0.5], [-0.1, -0.5]]) put(B(0.09, 0.22, 0.09), o, x, RY + 0.11, z);
+      put(B(0.34, 0.26, 0.62), o, 0, RY + 0.34, -0.28); put(B(0.26, 0.18, 0.3), cr, 0, RY + 0.29, -0.1);
+      put(B(0.34, 0.3, 0.3), o, 0, RY + 0.6, 0.08); put(B(0.2, 0.13, 0.16), cr, 0, RY + 0.52, 0.28); put(B(0.08, 0.06, 0.05), bk, 0, RY + 0.58, 0.37);
+      put(B(0.3, 0.1, 0.02), cr, 0, RY + 0.52, 0.235);
+      put(S(0.03), bk, 0.08, RY + 0.66, 0.235); put(S(0.03), bk, -0.08, RY + 0.66, 0.235);
+      put(K(0.07, 0.16, 4), o, 0.11, RY + 0.82, 0.06, 0, Math.PI / 4); put(K(0.07, 0.16, 4), o, -0.11, RY + 0.82, 0.06, 0, Math.PI / 4);
+      put(K(0.035, 0.08, 4), cr, 0.11, RY + 0.8, 0.09, 0, Math.PI / 4); put(K(0.035, 0.08, 4), cr, -0.11, RY + 0.8, 0.09, 0, Math.PI / 4);
+      put(new THREE.TorusGeometry(0.1, 0.045, 6, 12, Math.PI * 1.5), o, 0, RY + 0.58, -0.6, 0, Math.PI / 2); break;
+    }
+  }
+  switch (cos.rear) {
+    case 'wing': {
+      const bl = L(0x1c2026);
+      for (const x of [-0.55, 0.55]) put(B(0.08, 0.4, 0.14), bl, x, HY + 0.2, -1.95);
+      put(B(2.0, 0.06, 0.4), bl, 0, HY + 0.42, -2.0, -0.12); for (const x of [-1.0, 1.0]) put(B(0.04, 0.24, 0.46), bl, x, HY + 0.42, -2.0); break;
+    }
+    case 'ducktail': put(B(2.0, 0.08, 0.34), L(0x1c2026), 0, HY + 0.08, -2.02, 0.35); break;
+  }
+  if (cos.sticker) {
+    const mat = cosMat('stk' + cos.sticker, () => new THREE.MeshLambertMaterial({ map: stickerTex(cos.sticker), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+    const side = new THREE.PlaneGeometry(0.8, 0.8);
+    put(side, mat, 1.056, 0.74, 0.05, 0, Math.PI / 2).castShadow = false;
+    put(side, mat, -1.056, 0.74, 0.05, 0, -Math.PI / 2).castShadow = false;
+    put(new THREE.PlaneGeometry(0.7, 0.7), mat, 0, HY + 0.004, 1.5, -Math.PI / 2, 0, Math.PI).castShadow = false;
+  }
+  if (ghost) grp.traverse(m => { if (m.material) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.36; } });
+  return grp;
+}
+function applyCosmetics(root, cos, ghost) {
+  const tilt = root.userData.tilt; if (!tilt) return;
+  const old = tilt.getObjectByName('cosmetics');
+  if (old) { tilt.remove(old); old.traverse(m => { if (m.geometry) m.geometry.dispose(); if (ghost && m.material) m.material.dispose(); }); }
+  const g = buildCosmetics(cleanCos(cos), ghost);
+  if (ghost) g.traverse(m => { if (m.material) root.userData.mats.push(m.material); });
+  tilt.add(g);
+}
+function refreshMyCosmetics() { if (carMesh) applyCosmetics(carMesh, myCos(), false); }
+function botCos(rng) {
+  const pick = (slot) => { const l = COS_ITEMS.filter(it => it.slot === slot); return rng.f() < 0.6 ? l[Math.floor(rng.f() * l.length)].id : undefined; };
+  return cleanCos({ hood: pick('hood'), roof: pick('roof'), sticker: pick('sticker'), rear: pick('rear') });
+}
+
 function labelSprite(text, color) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 56;
   const g = cv.getContext('2d');
@@ -2764,7 +3086,7 @@ function passCheckpoint() {
 
 function restart() {
   if (!T) return;
-  if (mp.active && !mp.starting) return;
+  if ((mp.active && !mp.starting) || mp.spec) return;
   if (replay) { replay = null; $('#replay').hidden = true; }
   hideCards(); closeMenu(); closeModal();
   $('#hud').hidden = false;
@@ -2799,6 +3121,7 @@ function finishRace() {
   lastRunFrames = rec;
   runs.push(entry);
   saveRuns(raceKey, runs);
+  dailyCoins(entry, prevBest);
   refreshSigns();
   const rank = runs.indexOf(entry) + 1;
   if (rank === 1 && !ghostSel.includes('me')) ghostSel.push('me');
@@ -2854,6 +3177,12 @@ async function pullAccount() {
     if (d.name) settings.driverName = cleanName(d.name);
     if (/^#[0-9a-f]{6}$/i.test(d.color)) settings.color = d.color;
     saveSettings();
+    if (typeof d.coins === 'number') {
+      wallet.coins = Math.max(0, Math.floor(d.coins));
+      wallet.owned = [...new Set([...(Array.isArray(d.owned) ? d.owned : []), ...wallet.owned])].filter(id => COS[id]);
+      wallet.cos = cleanCos(d.cos);
+      saveWallet(false); refreshMyCosmetics();
+    } else saveWallet();   // first sign-in on this account: bring this browser's coins along
     if (typeof d.paint === 'string' && decodePaint(d.paint, MY_PAINT)) { store.set('ds:paint', d.paint); refreshMyPaint(); }
     else if (carMesh) carMesh.userData.paint.color.set(settings.color);
     for (const k in (d.best || {})) {
@@ -2891,7 +3220,7 @@ function initRealtime(fb) {
       me.onDisconnect().remove().then(() => me.set(true)).catch(() => {});
     });
     net.rt.ref('presence').on('value', (s) => { net.ccu = s.numChildren(); renderCcu(); }, () => {});
-  } catch (e) { console.error('Daily Swerve: realtime database unavailable', e); net.rt = null; }
+  } catch (e) { console.error('Swerrvle: realtime database unavailable', e); net.rt = null; }
 }
 function renderCcu() {
   const el = $('#t-ccu');
@@ -2919,7 +3248,7 @@ async function saveDriverName(name) {
     await netQueue(async () => {
       const ref = net.db.doc('drivers/' + net.uid), s = await ref.get();
       if (s.exists) await ref.update({ name, color: settings.color });
-      else await ref.set({ name, color: settings.color, joined: Date.now(), best: {}, paint: encodePaint(MY_PAINT) });
+      else await ref.set({ name, color: settings.color, joined: Date.now(), best: {}, paint: encodePaint(MY_PAINT), coins: wallet.coins, owned: wallet.owned.slice(), cos: Object.assign({}, wallet.cos) });
     });
     const runs = getRuns(raceKey);
     if (runs.length) postTime(raceKey, runs[0]);
@@ -2942,7 +3271,7 @@ async function postTime(key, entry) {
       const best = Object.assign({}, cur.best || {});
       best[key] = { t: entry.t, splits: entry.splits, ts: entry.ts };
       Object.keys(best).sort().slice(0, -40).forEach(k => delete best[k]);
-      await ref.set({ name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT), ...(cur.mp ? { mp: cur.mp } : {}) });
+      await ref.set(Object.assign({}, cur, { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT), coins: wallet.coins, owned: wallet.owned.slice(), cos: Object.assign({}, wallet.cos) }));
       if (entry.g && entry.g.length) {
         const gref = net.db.doc('ghosts/' + net.uid), gs = await gref.get();
         const days = Object.assign({}, gs.exists && gs.data().days || {});
@@ -3039,24 +3368,25 @@ async function mpFindLobby() {
   return net.db.runTransaction(async (tx) => {
     const now = srvNow();
     const open = await tx.get(openRef);
-    const id = open.exists && open.data().id;
+    const id = open.exists && open.data().id, live = (open.exists && open.data().live) || null;
     if (id) {
       const ref = net.db.doc('lobbies/' + id), snap = await tx.get(ref), L = snap.exists ? snap.data() : null;
       if (L && L.startAt == null) {
         const live = Object.entries(L.players || {}).filter(([uid, p]) => uid !== net.uid && p && now - (p.seen || 0) < MP_STALE);
         if (live.length < MP_MAX) {
-          const upd = { ['players.' + net.uid]: me };
+          const prev = L.players && L.players[net.uid];
+          const upd = { ['players.' + net.uid]: prev && prev.joined ? Object.assign({}, me, { joined: prev.joined }) : me };
           Object.keys(L.players || {}).forEach(uid => { if (uid !== net.uid && !live.some(([u]) => u === uid)) upd['players.' + uid] = firebase.firestore.FieldValue.delete(); });
           tx.update(ref, upd);
-          return id;
+          return { id, live };
         }
       }
     }
     const ref = net.db.collection('lobbies').doc();
     const day = new Date(2020, 0, 1 + Math.floor(Math.random() * 2190));
     tx.set(ref, { startAt: null, bots: true, key: dateKey(day), host: net.uid, players: { [net.uid]: me } });
-    tx.set(openRef, { id: ref.id });
-    return ref.id;
+    tx.set(openRef, { id: ref.id, live });
+    return { id: ref.id, live };
   });
 }
 async function mpQueue() {
@@ -3069,9 +3399,10 @@ async function mpQueue() {
   try {
     await mpSyncClock();
     if (mp.phase !== 'queue') return;
-    const id = await mpFindLobby();
+    const found = await mpFindLobby(), id = found.id;
     if (mp.phase !== 'queue') { mpLeaveLobby(id); return; }
     mp.id = id;
+    if (found.live && found.live !== id) mpTrySpectate(found.live);
     mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => { if (s.exists) { mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue(); } }));
     clearInterval(mp.timer);
     let beat = 0;
@@ -3108,7 +3439,9 @@ function mpCancel() {
 function mpReset() {
   mp.unsub.forEach(u => { try { u(); } catch (e) {} });
   mp.unsub = []; clearInterval(mp.timer); clearInterval(mp.pubT);
+  mpStopSpectate(); mp.watch = false; mp.watchI = 0;
   mp.active = false; mp.goAt = 0; mp.phase = 'idle'; mp.id = null; mp.lobby = null; mp.bots = []; mp.cars = new Map(); mp.ghosts = new Map(); mp.remote = new Map(); mp.result = null;
+  mpWatchBar();
 }
 const mpLive = (L) => Object.entries((L && L.players) || {}).filter(([uid, p]) => uid === net.uid || (p && srvNow() - (p.seen || 0) < MP_STALE));
 function mpLeader(L) {   // the lobby's creator leads; if they leave, the longest-waiting player takes over
@@ -3163,7 +3496,82 @@ function mpPressStart() {
   if (L.bots === false && mpLive(L).length < 2) return;
   const startAt = Math.round(srvNow() + 5000);
   net.db.doc('lobbies/' + mp.id).update({ startAt }).catch(() => toast('Could not start the race'));
-  net.db.doc('lobbies/open').get().then(o => { if (o.exists && o.data().id === mp.id) net.db.doc('lobbies/open').set({ id: null }); }).catch(() => {});
+  net.db.doc('lobbies/open').get().then(o => { if (o.exists && o.data().id === mp.id) net.db.doc('lobbies/open').set({ id: null, live: mp.id }); }).catch(() => {});
+}
+
+// ---- spectating: watch a race in progress while queued for the next one, or other racers after you finish ----
+async function mpTrySpectate(liveId) {
+  try {
+    const s = await net.db.doc('lobbies/' + liveId).get(), L = s.exists ? s.data() : null;
+    if (!L || L.startAt == null || mp.phase !== 'queue') return;
+    const goAt = L.startAt + MP_LOAD, now = srvNow();
+    if (now < L.startAt || now > goAt + 10 * 60000) return;   // not started yet, or long over
+    mp.spec = { id: liveId, goAt };
+    closeModal();
+    hideCards(); closeMenu();
+    $('#title').hidden = false; $('#t-eyebrow').textContent = 'Spectating'; $('#t-name').textContent = 'Building the road…'; $('#b-race').disabled = true;
+    await new Promise(r => setTimeout(r, 30));
+    if (!mp.spec || mp.phase !== 'queue') return;
+    raceKey = L.key;
+    buildTrackData(L.key); buildWorld(); clearFx();
+    T.rival = simulateRival(); T.ultra = null;
+    mp.players = Object.entries(L.players || {}).filter(([uid, p]) => p && L.startAt - (p.seen || 0) < MP_STALE).map(([uid, p]) => ({ uid, name: cleanName(p.name) || 'Driver', color: cleanColor(p.color) }));
+    const keepId = mp.id; mp.id = liveId; mp.bots = mpBots(mp.players.length, L.bots); mp.id = keepId;
+    mp.remote = new Map();
+    const specUnsub = [];
+    specUnsub.push(net.db.collection('lobbies/' + liveId + '/cars').onSnapshot((snap) => {
+      snap.docs.forEach(d => { const v = d.data(); if (!v) return; mp.cars.set(d.id, { done: typeof v.done === 'number' ? v.done : null }); if (!net.rt && v.pose) mpRemotePose(d.id, v.pose); });
+    }));
+    if (net.rt) {
+      const ref = net.rt.ref('mp/' + liveId), onVal = (sn) => { const all = sn.val() || {}; for (const uid in all) if (all[uid]) mpRemotePose(uid, all[uid]); };
+      ref.on('value', onVal); specUnsub.push(() => ref.off('value', onVal));
+    }
+    mp.spec.unsub = specUnsub;
+    hideCards();
+    car = spawnCar(); carMesh.visible = false;
+    state = 'spectate'; clock = Math.max(0, (srvNow() - goAt) / 1000);
+    setupGhosts();
+    $('#hud').hidden = true;
+    mp.watchI = 0; mpWatchBar();
+    toast('Race in progress · spectating until the next one');
+  } catch (e) { console.error('Swerrvle: spectate failed', e); }
+}
+function mpStopSpectate() {
+  if (!mp.spec) return;
+  (mp.spec.unsub || []).forEach(u => { try { u(); } catch (e) {} });
+  mp.spec = null; mp.remote = new Map(); mp.cars = new Map();
+  if (carMesh) carMesh.visible = true;
+  mpWatchBar();
+}
+const mpWatching = () => state === 'spectate' || (mp.active && mp.phase === 'done' && mp.watch);
+function mpWatchList() {
+  return ghostObjs.filter(g => g.mesh.visible && g.name).sort((a, b) => (b.remote ? 1 : 0) - (a.remote ? 1 : 0));
+}
+function mpWatchStart() { if (!mp.active || mp.phase !== 'done') return; mp.watch = true; mp.watchI = mp.watchI || 0; mpWatchBar(); }
+function mpWatchStep(d) {
+  const L = mpWatchList(); if (!L.length) return;
+  mp.watchI = ((mp.watchI || 0) + d + L.length) % L.length; mpWatchBar();
+}
+function mpWatchCamera(dt) {
+  const L = mpWatchList(); if (!L.length) return;
+  const g = L[((mp.watchI || 0) % L.length + L.length) % L.length], p = g.mesh.position, h = g.mesh.rotation.y;
+  const tx = p.x - Math.sin(h) * 9, tz = p.z - Math.cos(h) * 9, ty = p.y + 3.8, k = 1 - Math.exp(-dt * 5);
+  if (!mp.camInit || camera.position.distanceTo(p) > 60) { camera.position.set(tx, ty, tz); mp.camInit = true; }
+  else camera.position.set(lerp(camera.position.x, tx, k), lerp(camera.position.y, ty, k), lerp(camera.position.z, tz, k));
+  camera.lookAt(p.x, p.y + 1.2, p.z);
+  sun.position.set(p.x + SUN_DIR.x * 150, p.y + SUN_DIR.y * 150, p.z + SUN_DIR.z * 150); sun.target.position.copy(p);
+  sky.position.copy(camera.position);
+  const nm = $('#wb-name'); if (nm && nm.textContent !== g.name) nm.textContent = g.name;
+}
+function mpWatchBar() {
+  const bar = $('#watchbar'), on = mpWatching();
+  bar.hidden = !on;
+  if (!on) { mp.camInit = false; return; }
+  $('#wb-res').hidden = !(mp.active && mp.phase === 'done');
+  $('#wb-lobby').hidden = !mp.spec;
+  const L = mpWatchList();
+  $('#wb-name').textContent = L.length ? L[((mp.watchI || 0) % L.length + L.length) % L.length].name : 'No racers on track';
+  $('#wb-eyebrow').textContent = mp.spec ? 'Spectating · you race next round' : 'Spectating';
 }
 
 // bots drive the pace car's line, each a little slower and off to one side
@@ -3182,13 +3590,14 @@ function mpBots(humans, on) {
     const col = cols[rng.int(0, cols.length - 1)], px = new Uint32Array(PW * PH);
     applyPreset(presets[rng.int(0, presets.length - 1)], px, parseInt(col.slice(1), 16));
     const name = names.splice(rng.int(0, names.length - 1), 1)[0];
-    out.push({ id: 'bot' + i, name: '🤖 ' + name, color: col, f, hz: 30 * speed, t: T.rival.t / speed, tex: paintTextureFor(encodePaint(px), col) });
+    out.push({ id: 'bot' + i, name: '🤖 ' + name, color: col, f, hz: 30 * speed, t: T.rival.t / speed, tex: paintTextureFor(encodePaint(px), col), cos: botCos(rng) });
   }
   return out;
 }
 async function mpStart() {
   if (mp.phase !== 'queue' || !mp.lobby) return;
-  mp.phase = 'loading'; mp.active = true;
+  mpStopSpectate();
+  mp.phase = 'loading'; mp.active = true; mp.watch = false;
   const L = mp.lobby, goAt = mp.goAt = L.startAt + MP_LOAD;
   mp.players = Object.entries(L.players || {}).filter(([uid, p]) => uid === net.uid || (p && L.startAt - (p.seen || 0) < MP_STALE)).map(([uid, p]) => ({ uid, name: cleanName(p && p.name) || 'Driver', color: cleanColor(p && p.color) }));
   closeModal(); closeMenu(); hideCards();
@@ -3272,7 +3681,7 @@ function mpRenderRemote() {
     d.h = lerpAngle(d.h, th, k); d.p += (s.p - d.p) * k; d.r += (s.r - d.r) * k;
     d.vx = s.vx || 0; d.vz = s.vz || 0;
     poseMesh(g.mesh, d.x, d.y, d.z, d.h, d.p, d.r);
-    g.mesh.visible = state === 'countdown' || state === 'racing' || state === 'finished';
+    g.mesh.visible = state === 'countdown' || state === 'racing' || state === 'finished' || state === 'spectate';
     const cd = camera.position.distanceTo(g.mesh.position);
     g.label.material.opacity = clamp((cd - 7) / 6, 0, 1);
   }
@@ -3303,16 +3712,16 @@ function mpCollide(c) {
   }
 }
 function mpGhostList() {
-  const out = mp.bots.map(b => ({ key: b.id, f: b.f, hz: b.hz, color: b.color, label: b.name.toUpperCase(), tex: b.tex }));
+  const out = mp.bots.map(b => ({ key: b.id, f: b.f, hz: b.hz, color: b.color, label: b.name.toUpperCase(), tex: b.tex, cos: b.cos }));
   mp.players.forEach(p => {
     if (p.uid === net.uid) return;
     const d = net.drivers.get(p.uid);
-    out.push({ key: p.uid, f: [], hz: 10, color: p.color, label: p.name.toUpperCase(), tex: paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, p.color), remote: true });
+    out.push({ key: p.uid, f: [], hz: 10, color: p.color, label: p.name.toUpperCase(), tex: paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, p.color), cos: cleanCos(d && d.cos), remote: true });
   });
   return out;
 }
 function mpStandings() {
-  const rows = mp.bots.map(b => ({ name: b.name, t: b.t, bot: true, icon: { id: b.id, tex: b.tex } }));
+  const rows = mp.bots.map(b => ({ name: b.name, t: b.t, bot: true, icon: { id: b.id, tex: b.tex, cos: b.cos } }));
   mp.players.forEach(p => {
     const me = p.uid === net.uid, c = mp.cars.get(p.uid);
     rows.push({ name: p.name, uid: p.uid, me, t: me ? finishTime : c ? c.done : null, icon: { id: 'drv:' + p.uid, uid: p.uid, me, color: p.color } });
@@ -3330,6 +3739,7 @@ function mpFinish() {
   mp.result = { place, win, t };
   const inc = firebase.firestore.FieldValue.increment;
   netQueue(() => net.db.doc('drivers/' + net.uid).update({ 'mp.races': inc(1), 'mp.wins': inc(win ? 1 : 0) })).catch(netError);
+  awardCoins(win ? 40 : 10, win ? 'for the win' : 'for racing');
   if (win) confetti();
   setTimeout(() => { if (mp.active) openModal('mpres'); }, 1200);
 }
@@ -3354,6 +3764,7 @@ function renderMpResults() {
 }
 const ordinal = (n) => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th');
 function mpExit(again) {
+  if (mp.phase === 'queue' && mp.id) mpLeaveLobby(mp.id);
   if (net.rt && mp.id) net.rt.ref('mp/' + mp.id + '/' + net.uid).remove().catch(() => {});
   mpReset();
   closeModal();
@@ -3403,11 +3814,11 @@ function ghostData(id) {
   if (id === 'rival') return T.rival ? { f: T.rival.frames, hz: 30, color: '#35d0c0', label: 'PACE CAR', tex: paintTextureFor(null, '#35d0c0') } : null;
   if (id === 'ultra') return T.ultra ? { f: T.ultra.frames, hz: 30, color: '#c084fc', label: 'ULTRA PACE', tex: paintTextureFor(null, '#c084fc') } : null;
   const runs = getRuns(raceKey);
-  if (id === 'me') return runs[0] && runs[0].g ? { f: runs[0].g, hz: 30, color: settings.color, label: 'YOUR BEST', tex: myPaintTex } : null;
-  if (id.startsWith('run:')) { const r = runs.find(x => 'run:' + x.ts === id); return r && r.g ? { f: r.g, hz: 30, color: settings.color, label: 'YOU ' + fmt(r.t), tex: myPaintTex } : null; }
+  if (id === 'me') return runs[0] && runs[0].g ? { f: runs[0].g, hz: 30, color: settings.color, label: 'YOUR BEST', tex: myPaintTex, cos: myCos() } : null;
+  if (id.startsWith('run:')) { const r = runs.find(x => 'run:' + x.ts === id); return r && r.g ? { f: r.g, hz: 30, color: settings.color, label: 'YOU ' + fmt(r.t), tex: myPaintTex, cos: myCos() } : null; }
   if (id.startsWith('drv:')) {
     const uid = id.slice(4), g = ghostCache[uid + '|' + raceKey], d = net.drivers.get(uid);
-    return g ? { f: g.f, hz: g.hz, color: cleanColor(d && d.color), label: (cleanName(d && d.name) || 'Driver').toUpperCase(), tex: paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, cleanColor(d && d.color)) } : null;
+    return g ? { f: g.f, hz: g.hz, color: cleanColor(d && d.color), label: (cleanName(d && d.name) || 'Driver').toUpperCase(), tex: paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, cleanColor(d && d.color)), cos: cleanCos(d && d.cos) } : null;
   }
   return null;
 }
@@ -3422,13 +3833,13 @@ function defaultGhostSel() {
 function setupGhosts() {
   ghostObjs.forEach(g => { scene.remove(g.mesh); disposeTree(g.mesh); });
   ghostObjs = [];
-  if (mp.active) {
+  if (mp.active || mp.spec) {
     mp.ghosts = new Map();
     for (const s of mpGhostList()) {
-      const mesh = makeCarMesh(s.color, !s.remote, s.tex), label = labelSprite(s.label, s.color);
+      const mesh = makeCarMesh(s.color, !s.remote, s.tex, s.cos), label = labelSprite(s.label, s.color);
       mesh.add(label); scene.add(mesh);
       if (s.remote) { mesh.visible = false; mesh.castShadow = true; }
-      const g = { mesh, label, frames: s.f, hz: s.hz, fade: -1, remote: !!s.remote };
+      const g = { mesh, label, frames: s.f, hz: s.hz, fade: -1, remote: !!s.remote, name: s.label };
       ghostObjs.push(g); if (s.remote) mp.ghosts.set(s.key, g);
     }
     return;
@@ -3436,7 +3847,7 @@ function setupGhosts() {
   for (const id of ghostSel) {
     const s = ghostData(id);
     if (!s || !s.f || s.f.length < 12) continue;
-    const mesh = makeCarMesh(s.color, true, s.tex);
+    const mesh = makeCarMesh(s.color, true, s.tex, s.cos);
     const label = labelSprite(s.label, s.color);
     mesh.add(label);
     scene.add(mesh);
@@ -3444,12 +3855,12 @@ function setupGhosts() {
   }
 }
 function updateGhosts() {
-  const t = state === 'countdown' ? 0 : state === 'replay' ? clock : clock + (state === 'racing' || state === 'finished' ? acc : 0);
-  if (mp.active) mpRenderRemote();
+  const t = state === 'spectate' && mp.spec ? Math.max(0, (srvNow() - mp.spec.goAt) / 1000) : state === 'countdown' ? 0 : state === 'replay' ? clock : clock + (state === 'racing' || state === 'finished' ? acc : 0);
+  if (mp.active || mp.spec) mpRenderRemote();
   for (const g of ghostObjs) {
     if (g.remote) continue;
     const F = g.frames, n = Math.floor(F.length / 6), hz = g.hz, tg = t;
-    g.mesh.visible = ghostsVisible && n >= 2 && (state === 'countdown' || state === 'racing' || state === 'finished' || state === 'replay') && t < n / hz + 2;
+    g.mesh.visible = ghostsVisible && n >= 2 && (state === 'countdown' || state === 'racing' || state === 'finished' || state === 'replay' || state === 'spectate') && t < n / hz + 2;
     if (!g.mesh.visible) continue;
     // fade a ghost out as it nears the camera so it never fills the screen
     const cd = camera.position.distanceTo(g.mesh.position);
@@ -3889,9 +4300,10 @@ function frame(now) {
   blob.position.set(V.x, gy + 0.03, V.z); blob.rotation.y = V.h;
   blob.material.opacity = car.flipped ? 0.25 : clamp(0.5 - (V.y - gy) * 0.4, 0, 0.5);
   const kmh = sp * 3.6, gi = gearInfo(kmh, car.vf);
-  if (state !== 'title') { updateHud(gi, kmh); if (!$('#hud').hidden) drawMinimap(); }
+  if (state !== 'title' && state !== 'spectate') { updateHud(gi, kmh); if (!$('#hud').hidden) drawMinimap(); }
   updateEngine(gi);
   updateExtraSound(gi, kmh);
+  if (mpWatching()) mpWatchCamera(dt);
   renderer.render(scene, camera);
 }
 function replayFrame(dt) {
@@ -3919,7 +4331,7 @@ function openMenu() {
 }
 function closeMenu() { $('#menu').hidden = true; paused = false; last = performance.now(); }
 function showTitle() {
-  if (mp.active) return;
+  if (mp.active || mp.spec) return;
   state = 'title'; paused = false; closeMenu(); closeModal();
   $('#hud').hidden = true; $('#touch').hidden = true; $('#finish').hidden = true;
   car = spawnCar(); orbitA = car.h + Math.PI * 0.75;
@@ -3928,6 +4340,7 @@ function showTitle() {
 }
 
 function renderTitle() {
+  renderCoins();
   const isToday = raceKey === todayKey;
   $('#t-eyebrow').textContent = (isToday ? "Today's race" : 'Past race') + ' · #' + raceNo(raceKey);
   $('#t-name').textContent = T.name;
@@ -4118,7 +4531,7 @@ function showFinish(entry, prevBest, rank, posting) {
     cells.push(`<div title="${seg.toFixed(3)} s"><i class="${cls}"></i>${i === entry.splits.length - 1 ? 'FIN' : 'S' + (i + 1)}</div>`);
   });
   $('#f-splits').innerHTML = cells.join('');
-  const text = `Daily Swerve #${raceNo(raceKey)} · ${prettyDate(raceKey)}\n${T.name}${myName() ? ' · ' + myName() : ''}\n🏁 ${fmt(entry.t)}${medal ? ' ' + medal.emoji : ''}\n${emo.join('')}`;
+  const text = `Swerrvle #${raceNo(raceKey)} · ${prettyDate(raceKey)}\n${T.name}${myName() ? ' · ' + myName() : ''}\n🏁 ${fmt(entry.t)}${medal ? ' ' + medal.emoji : ''}\n${emo.join('')}`;
   const ta = $('#f-sharetext'); ta.value = text; ta.hidden = true;
   $('#finish').hidden = false;
 }
@@ -4132,7 +4545,7 @@ function toast(msg) {
 let boardTab = 'today';
 function renderModalBoard() { if (boardTab === 'mp') renderMpRankings($('#mb-list'), $('#mb-sub')); else if (boardTab === 'rank') renderRankings($('#mb-list'), $('#mb-sub')); else renderBoard($('#mb-list'), $('#mb-sub')); }
 let modalKind = null, pendingRace = false, askedName = false;
-function closeModal() { const k = modalKind; $('#modal').hidden = true; modalKind = null; clearInterval(modalTimer); if (k === 'mp') mpCancel(); else if (k === 'mpres' && mp.active) mpExit(false); }
+function closeModal() { const k = modalKind; $('#modal').hidden = true; modalKind = null; clearInterval(modalTimer); if (k === 'mp' && !mp.spec) mpCancel(); else if (k === 'mpres' && mp.active) mpWatchStart(); }
 let modalTimer = 0;
 const previewCache = {};
 function unlockIn(k) {
@@ -4185,7 +4598,7 @@ function openModal(kind) {
       <p>Reverse gives a boost too. Above 30 km/h backwards, holding reverse keeps speeding you up.</p>
       <p>The boost meter fills while you drift and while you are in the air, up to 3 seconds. Hold <kbd>Shift</kbd> to spend it.</p>
       <h3>Paint</h3>
-      <p>Edit vehicle opens the paint shop. Paint straight onto the car with the pencil, brush or fill, pick colours off the car, or start from a preset. With a driver name, other racers see your paint on your ghost.</p>
+      <p>Customize opens the garage: paint the car in Paint, or spend coins in the Shop on hood ornaments, engine parts, roof toppers, wings and stickers. Paint straight onto the car with the pencil, brush or fill, pick colours off the car, or start from a preset. With a driver name, other racers see your paint on your ghost.</p>
       <h3>Rolling over</h3>
       <p>The car is tall and sits on soft, bouncy springs. Hard cornering lifts it onto two wheels, and steep slopes, crooked landings and hard hits on trees and rocks can roll it. On your side or roof, steer to rock it back over. Once it stops, the car rights itself. <kbd>R</kbd> puts you back at the last checkpoint.</p>
       <h3>In the air</h3>
@@ -4284,7 +4697,7 @@ function openModal(kind) {
         <button class="btn go" type="button" id="mpq-start">Start race</button>
       </div>
       <button class="btn" type="button" id="mpq-cancel" style="margin-top:12px;width:100%">Leave queue</button>`;
-    $('#mpq-cancel').onclick = () => closeModal();
+    $('#mpq-cancel').onclick = () => { if (mp.spec) mpExit(false); else closeModal(); };
     $('#mpq-bots').onchange = (e) => mpSetBots(e.target.checked);
     $('#mpq-start').onclick = () => mpPressStart();
     renderMpQueue();
@@ -4294,7 +4707,9 @@ function openModal(kind) {
     c.innerHTML = `<h2>Race results</h2>
       <p class="eyebrow" id="mpr-place" style="font-size:13px"></p>
       <ol class="board" id="mpr-list" style="margin-top:10px"></ol>
-      <div class="row2" style="margin-top:14px"><button class="btn go" type="button" id="mpr-again">Queue again</button><button class="btn" type="button" id="mpr-exit">Back to daily race</button></div>`;
+      <button class="btn dark" type="button" id="mpr-watch" style="margin-top:14px;width:100%">Spectate other racers <kbd>←</kbd><kbd>→</kbd></button>
+      <div class="row2" style="margin-top:8px"><button class="btn go" type="button" id="mpr-again">Queue again</button><button class="btn" type="button" id="mpr-exit">Back to daily race</button></div>`;
+    $('#mpr-watch').onclick = () => closeModal();
     $('#mpr-again').onclick = () => mpExit(true);
     $('#mpr-exit').onclick = () => mpExit(false);
     renderMpResults();
@@ -4349,7 +4764,7 @@ function openModal(kind) {
 }
 
 function loadRace(key) {
-  if (mp.active) { const id = mp.id, q = mp.phase === 'queue'; mpReset(); if (q) mpLeaveLobby(id); }
+  if (mp.active || mp.spec) { const id = mp.id, q = mp.phase === 'queue'; mpReset(); if (q) mpLeaveLobby(id); }
   raceKey = key;
   state = 'loading';
   hideCards(); closeMenu();
@@ -4364,12 +4779,12 @@ function loadRace(key) {
       clearFx();
     } catch (e) { showLoadError(e); return; }
     // everything below is optional: if one part fails the race still loads without it
-    const soft = (what, fn) => { try { fn(); } catch (e) { console.error('Daily Swerve: ' + what + ' failed', e); } };
+    const soft = (what, fn) => { try { fn(); } catch (e) { console.error('Swerrvle: ' + what + ' failed', e); } };
     soft('pace car', () => { T.rival = simulateRival(); });
     soft('ultra pace', () => { T.ultra = simulateUltra(); });
     if (T.rival && (!T.ultra || T.ultra.t > T.rival.t)) T.ultra = T.rival;   // never slower than the pace car
     if (!carMesh) {
-      try { carMesh = makeCarMesh(settings.color, false, myPaintTex); }
+      try { carMesh = makeCarMesh(settings.color, false, myPaintTex, myCos()); }
       catch (e) { console.error(e); carMesh = makeCarMesh(settings.color, false, null); }
       scene.add(carMesh);
       // headlights: always in the scene (so toggling never recompiles shaders), just dark until L
@@ -4433,6 +4848,11 @@ addEventListener('keydown', (e) => {
     else if (e.code === 'KeyY' && (e.ctrlKey || e.metaKey)) redo();
     return;
   }
+  if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && ((mp.active && mp.phase === 'done') || state === 'spectate')) {
+    if (modalKind === 'mpres') closeModal(); else if (!mp.watch && state !== 'spectate') mpWatchStart();
+    if ($('#modal').hidden) mpWatchStep(e.code === 'ArrowLeft' ? -1 : 1);
+    e.preventDefault(); return;
+  }
   if (e.code === 'Escape') {
     if (!$('#modal').hidden) closeModal();
     else if (!$('#menu').hidden) closeMenu();
@@ -4464,6 +4884,12 @@ $('#b-race').onclick = () => {
   restart();
 };
 $('#b-mp').onclick = () => { ensureAudio(); mpQueue(); };
+document.querySelectorAll('#g-tabs button').forEach(b => b.onclick = () => setGarageTab(b.dataset.gtab));
+$('#wb-prev').onclick = () => mpWatchStep(-1);
+$('#wb-next').onclick = () => mpWatchStep(1);
+$('#wb-res').onclick = () => { mp.watch = false; mpWatchBar(); openModal('mpres'); };
+$('#wb-lobby').onclick = () => openModal('mp');
+$('#wb-leave').onclick = () => mpExit(false);
 $('#m-retry').onclick = () => restart();
 $('#m-resume').onclick = () => closeMenu();
 $('#m-info').onclick = () => showTitle();
