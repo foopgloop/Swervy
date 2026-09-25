@@ -1209,9 +1209,8 @@ function stepCar(c, inp, dt) {
   // boost fills while you drift or fly, and drains while you hold Shift
   c.boosting = boosting && contacts > 0;
   if (c.boosting) c.boost = Math.max(0, c.boost - dt);
-  else if (contacts >= 3 && c.drifting) c.boost = Math.min(3, c.boost + 1.2 * dt);
-  else if (contacts >= 3 && Math.hypot(c.vx, c.vz) > 16) c.boost = Math.min(3, c.boost + 0.12 * dt);   // a slow trickle just for keeping speed up
-  if (!contacts && !body) c.boost = Math.min(3, c.boost + 1.0 * dt);
+  else if (contacts >= 3 && c.drifting) c.boost = Math.min(3, c.boost + 0.5 * dt);
+  if (!contacts && !body) c.boost = Math.min(3, c.boost + 0.4 * dt);
 
   // integrate: linear, then angular in body space (diagonal inertia)
   c.vx += Fx * dt; c.vy += Fy * dt; c.vz += Fz * dt;
@@ -3066,7 +3065,6 @@ function simStep() {
 function passCheckpoint() {
   splits.push(raceTime);
   const k = nextCp;
-  car.boost = Math.min(3, car.boost + 0.5);   // every checkpoint tops up the boost meter
   lastCpIdx = T.cps[k];
   nextCp++;
   const m = gateMats[k + 1]; if (m) m.color.set('#c9f5d9');
@@ -4598,7 +4596,7 @@ function openModal(kind) {
       <h3>Boosts</h3>
       <p>Ramps give a boost. You leave a ramp faster than you hit it.</p>
       <p>Reverse gives a boost too. Above 30 km/h backwards, holding reverse keeps speeding you up.</p>
-      <p>The boost meter fills fast while you drift or fly, slowly while you keep your speed up, and every checkpoint adds half a second, up to 3 seconds. Hold <kbd>Shift</kbd> to spend it.</p>
+      <p>The boost meter fills while you drift and while you are in the air, up to 3 seconds. Hold <kbd>Shift</kbd> to spend it.</p>
       <h3>Paint</h3>
       <p>Customize opens the garage: paint the car in Paint, or spend coins in the Shop on hood ornaments, engine parts, roof toppers, wings and stickers. Paint straight onto the car with the pencil, brush or fill, pick colours off the car, or start from a preset. With a driver name, other racers see your paint on your ghost.</p>
       <h3>Rolling over</h3>
