@@ -220,6 +220,8 @@ body.touch #flip .k-touch{display:inline}
 .board.rank .tm small{display:block;margin-top:3px;font:700 9px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .board li.top1 .rk{color:var(--gold);font-weight:800} .board li.top2 .rk{color:#8f9aa1;font-weight:800} .board li.top3 .rk{color:var(--bronze);font-weight:800}
 .mb-tabs{margin:2px 0 10px}
+.ccu{position:absolute;top:22px;right:24px;display:inline-flex;align-items:center;gap:6px;font:800 10px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--good)}
+.ccu i{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px rgba(31,157,91,.18)}
 .mpq-clock{display:flex;align-items:baseline;gap:10px;margin:4px 0 6px}
 .mpq-clock b{font:400 64px/1 var(--display);color:var(--go)}
 .mpq-lead{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin-top:12px}
@@ -334,6 +336,7 @@ body.touch .key-legend{display:none}
 </div>
 
 <section id="title" class="panel card" aria-labelledby="t-name">
+  <span class="ccu" id="t-ccu" hidden title="Players online right now"><i></i> 0 online</span>
   <p class="eyebrow" id="t-eyebrow">Today's race</p>
   <h1 id="t-name">Building the road…</h1>
   <dl class="facts">
@@ -460,6 +463,7 @@ body.touch .key-legend{display:none}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (() => {
@@ -2727,6 +2731,7 @@ const COAST = { throttle: 0, brake: 1, steer: 0, hand: false };
 function simStep() {
   const inp = state === 'racing' ? inputNow() : state === 'finished' ? COAST : NO_INPUT;
   stepCar(car, inp, DT, true);
+  if (mp.active && (state === 'racing' || state === 'finished')) mpCollide(car);
   if (state === 'racing' || state === 'finished') clock += DT;
   if (state !== 'racing') return;
   raceTime += DT;
@@ -2805,7 +2810,7 @@ function finishRace() {
 /* ---------------- shared leaderboard (db) ---------------- */
 // drivers/<uid>: { name, color, joined, best: { "YYYY-MM-DD": { t, splits, ts } } }
 // ghosts/<uid>:  { days: { "YYYY-MM-DD": { hz, f: [x,y,z,h,pitch,roll, ...] } } }
-const net = { db: null, auth: null, user: null, uid: null, ready: false, writable: true, drivers: new Map(), q: Promise.resolve() };
+const net = { db: null, rt: null, ccu: 0, auth: null, user: null, uid: null, ready: false, writable: true, drivers: new Map(), q: Promise.resolve() };
 const ghostCache = {};
 const cleanName = (s) => String(s == null ? '' : s).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 16);
 const cleanColor = (s) => /^#[0-9a-f]{6}$/i.test(s) ? s : '#ffd36b';
@@ -2824,6 +2829,7 @@ async function initNet() {
       fb.initializeApp(await r.json());
     }
     net.auth = fb.auth(); net.db = fb.firestore();
+    initRealtime(fb);
     net.db.collection('drivers').limit(1000).onSnapshot((snap) => {
       const m = new Map();
       snap.docs.forEach(d => { if (d.exists) m.set(d.id, d.data()); });
@@ -2872,6 +2878,26 @@ function authMessage(e) {
   if (c === 'auth/unauthorized-domain') return 'This site is not an authorized domain in Firebase Authentication settings.';
   if (c === 'auth/operation-not-allowed') return 'This sign-in method is not turned on in Firebase.';
   return 'Could not sign in. ' + (e && e.message || '');
+}
+// Realtime Database (optional): live car positions in multiplayer and the players-online count.
+// Only used when the project has one (its URL then appears in Hosting's init.json).
+function initRealtime(fb) {
+  try {
+    if (!fb.database || !fb.app().options.databaseURL) return;
+    net.rt = fb.database();
+    const me = net.rt.ref('presence').push();
+    net.rt.ref('.info/connected').on('value', (s) => {
+      if (s.val() !== true) return;
+      me.onDisconnect().remove().then(() => me.set(true)).catch(() => {});
+    });
+    net.rt.ref('presence').on('value', (s) => { net.ccu = s.numChildren(); renderCcu(); }, () => {});
+  } catch (e) { console.error('Daily Swerve: realtime database unavailable', e); net.rt = null; }
+}
+function renderCcu() {
+  const el = $('#t-ccu');
+  if (!el) return;
+  el.hidden = !(net.ccu > 0);
+  el.lastChild.textContent = ' ' + net.ccu + ' online';
 }
 function refreshBoards() {
   if (!T) return;
@@ -2986,9 +3012,9 @@ function standings() {
 // lobbies/<id>:            { startAt (server ms), key (route), host, players: { uid: { name, color } } }
 // lobbies/<id>/cars/<uid>: { hz, f: [x,y,z,h,pitch,roll, ...], done: finish time or null }
 // drivers/<uid>.mp:        { wins, races }   only 1st place scores a point
-const MP_LOAD = 9000, MP_MAX = 8, MP_FIELD = 6, MP_DELAY = 1.2;
+const MP_LOAD = 9000, MP_MAX = 8, MP_FIELD = 6;
 const BOT_NAMES = ['Rusty', 'Nitro Nan', 'Skid Kid', 'Gravel Gus', 'Turbo Tia', 'Drift Dot', 'Mudflap', 'Axle Rose', 'Sprocket', 'Burnout Bo'];
-const mp = { active: false, phase: 'idle', id: null, lobby: null, off: 0, unsub: [], bots: [], cars: new Map(), ghosts: new Map(), pubT: null, timer: null, result: null };
+const mp = { active: false, phase: 'idle', id: null, lobby: null, off: 0, unsub: [], bots: [], cars: new Map(), ghosts: new Map(), remote: new Map(), pubT: null, timer: null, result: null };
 const srvNow = () => Date.now() + mp.off;
 const mpWins = (d) => (d && d.mp && typeof d.mp.wins === 'number' ? d.mp.wins : 0);
 const mpRaces = (d) => (d && d.mp && typeof d.mp.races === 'number' ? d.mp.races : 0);
@@ -3082,7 +3108,7 @@ function mpCancel() {
 function mpReset() {
   mp.unsub.forEach(u => { try { u(); } catch (e) {} });
   mp.unsub = []; clearInterval(mp.timer); clearInterval(mp.pubT);
-  mp.active = false; mp.goAt = 0; mp.phase = 'idle'; mp.id = null; mp.lobby = null; mp.bots = []; mp.cars = new Map(); mp.ghosts = new Map(); mp.result = null;
+  mp.active = false; mp.goAt = 0; mp.phase = 'idle'; mp.id = null; mp.lobby = null; mp.bots = []; mp.cars = new Map(); mp.ghosts = new Map(); mp.remote = new Map(); mp.result = null;
 }
 const mpLive = (L) => Object.entries((L && L.players) || {}).filter(([uid, p]) => uid === net.uid || (p && srvNow() - (p.seen || 0) < MP_STALE));
 function mpLeader(L) {   // the lobby's creator leads; if they leave, the longest-waiting player takes over
@@ -3156,7 +3182,7 @@ function mpBots(humans, on) {
     const col = cols[rng.int(0, cols.length - 1)], px = new Uint32Array(PW * PH);
     applyPreset(presets[rng.int(0, presets.length - 1)], px, parseInt(col.slice(1), 16));
     const name = names.splice(rng.int(0, names.length - 1), 1)[0];
-    out.push({ id: 'bot' + i, name, color: col, f, hz: 30 * speed, t: T.rival.t / speed, tex: paintTextureFor(encodePaint(px), col) });
+    out.push({ id: 'bot' + i, name: '🤖 ' + name, color: col, f, hz: 30 * speed, t: T.rival.t / speed, tex: paintTextureFor(encodePaint(px), col) });
   }
   return out;
 }
@@ -3179,40 +3205,109 @@ async function mpStart() {
     snap.docs.forEach(d => {
       if (d.id === net.uid) return;
       const v = d.data();
-      if (!v || !Array.isArray(v.f)) return;
-      mp.cars.set(d.id, { f: v.f, hz: v.hz === 30 ? 30 : 10, done: typeof v.done === 'number' ? v.done : null });
-      const g = mp.ghosts.get(d.id); if (g) { g.frames = v.f; g.hz = v.hz === 30 ? 30 : 10; }
+      if (!v) return;
+      mp.cars.set(d.id, { done: typeof v.done === 'number' ? v.done : null });
+      if (!net.rt && v.pose) mpRemotePose(d.id, v.pose);
     });
     if (modalKind === 'mpres') renderMpResults();
   }));
+  if (net.rt) {
+    const ref = net.rt.ref('mp/' + mp.id);
+    const onVal = (s) => { const all = s.val() || {}; for (const uid in all) if (uid !== net.uid && all[uid]) mpRemotePose(uid, all[uid]); };
+    ref.on('value', onVal);
+    net.rt.ref('mp/' + mp.id + '/' + net.uid).onDisconnect().remove();
+    mp.unsub.push(() => ref.off('value', onVal));
+  }
   $('#t-name').textContent = T.name;
   const wait = () => {
     if (!mp.active) return;
-    if (srvNow() >= goAt - 2400) { mp.phase = 'race'; mp.starting = true; restart(); mp.starting = false; mpPublishLoop(); return; }
+    if (srvNow() >= goAt - 2400) { mp.phase = 'race'; mp.starting = true; restart(); mp.starting = false; mpGrid(car); mpPublishLoop(); return; }
     $('#t-eyebrow').textContent = 'Multiplayer · starting in ' + Math.ceil((goAt - 2400 - srvNow()) / 1000);
     setTimeout(wait, 200);
   };
   wait();
 }
-function mpPack() {
-  const f = [];
-  for (let i = 0; i + 5 < rec.length; i += 18) for (let k = 0; k < 6; k++) f.push(rec[i + k]);
-  return f;
+// live position: origin + orientation + velocity, so other players can predict where you are right now
+function mpPose() {
+  const o = carOrigin(car, { x: 0, y: 0, z: 0 });
+  return { x: +o.x.toFixed(2), y: +o.y.toFixed(2), z: +o.z.toFixed(2), h: +car.h.toFixed(3), p: +car.pitch.toFixed(3), r: +car.roll.toFixed(3),
+    vx: +car.vx.toFixed(2), vy: +car.vy.toFixed(2), vz: +car.vz.toFixed(2), wy: +car.wy.toFixed(3), t: +raceTime.toFixed(2) };
 }
 function mpPublishLoop() {
   clearInterval(mp.pubT);
-  const ref = net.db.doc('lobbies/' + mp.id + '/cars/' + net.uid);
+  let n = 0;
   mp.pubT = setInterval(() => {
     if (!mp.active || state !== 'racing') return;
-    ref.set({ hz: 10, f: mpPack(), done: null, name: onlineName() }).catch(() => {});
-  }, 1000);
+    if (net.rt) net.rt.ref('mp/' + mp.id + '/' + net.uid).set(mpPose()).catch(() => {});
+    else if (n++ % 5 === 0) net.db.doc('lobbies/' + mp.id + '/cars/' + net.uid).set({ pose: mpPose(), done: null, name: onlineName() }, { merge: true }).catch(() => {});
+  }, 100);   // 10 a second on the realtime database; 2 a second on the Firestore fallback
+}
+// starting grid: two cars per row, 7 m between rows, in a fixed order every client agrees on
+function mpGrid(c) {
+  const order = mp.players.map(p => p.uid).sort(), k = Math.max(0, order.indexOf(net.uid));
+  const row = Math.floor(k / 2), l = (k % 2 ? -1 : 1) * 2.4;
+  const i = Math.max(2, T.spawnIdx - Math.round(row * 7 / SAMPLE));
+  placeCar(c, i, 0);
+  c.x = T.X[i] - T.TZ[i] * l; c.z = T.Z[i] + T.TX[i] * l;
+  c.y = groundY(c.x, c.z, i) + 0.02 + CGY;
+  savePrev(c);
+}
+function mpRemotePose(uid, v) {
+  if (!v || typeof v.x !== 'number') return;
+  const r = mp.remote.get(uid) || {};
+  r.s = v; r.at = performance.now();
+  if (!r.d) r.d = { x: v.x, y: v.y, z: v.z, h: v.h, p: v.p, r: v.r };
+  mp.remote.set(uid, r);
+}
+// where each remote car is now: last sample moved on by its velocity (capped), eased so corrections don't snap
+function mpRenderRemote() {
+  const now = performance.now();
+  for (const [uid, r] of mp.remote) {
+    const g = mp.ghosts.get(uid); if (!g || !r.s) continue;
+    const s = r.s, dt = Math.min(0.5, (now - r.at) / 1000), k = Math.min(1, (now - (r.last || now)) / 1000 * 12 + 0.05);
+    r.last = now;
+    const tx = s.x + (s.vx || 0) * dt, ty = s.y + (s.vy || 0) * dt * 0.5, tz = s.z + (s.vz || 0) * dt, th = s.h + (s.wy || 0) * dt;
+    const d = r.d;
+    d.x += (tx - d.x) * k; d.y += (ty - d.y) * k; d.z += (tz - d.z) * k;
+    d.h = lerpAngle(d.h, th, k); d.p += (s.p - d.p) * k; d.r += (s.r - d.r) * k;
+    d.vx = s.vx || 0; d.vz = s.vz || 0;
+    poseMesh(g.mesh, d.x, d.y, d.z, d.h, d.p, d.r);
+    g.mesh.visible = state === 'countdown' || state === 'racing' || state === 'finished';
+    const cd = camera.position.distanceTo(g.mesh.position);
+    g.label.material.opacity = clamp((cd - 7) / 6, 0, 1);
+  }
+}
+// bumping other players: each car is three circles along its length; we push only our own car, they push theirs
+function mpCollide(c) {
+  if (!mp.remote.size || c.flipped) return;
+  const R = 1.05, fx = Math.sin(c.h), fz = Math.cos(c.h), o = carOrigin(c, { x: 0, y: 0, z: 0 });
+  for (const [, r] of mp.remote) {
+    const d = r.d; if (!d || Math.abs(o.y - d.y) > 2.2) continue;
+    if ((o.x - d.x) * (o.x - d.x) + (o.z - d.z) * (o.z - d.z) > 36) continue;
+    const gx = Math.sin(d.h), gz = Math.cos(d.h);
+    let best = null;
+    for (const a of [-1.15, 0, 1.15]) for (const b of [-1.15, 0, 1.15]) {
+      const ax = o.x + fx * a, az = o.z + fz * a, bx = d.x + gx * b, bz = d.z + gz * b;
+      const ex = ax - bx, ez = az - bz, dd = Math.hypot(ex, ez);
+      if (dd < 2 * R && (!best || dd < best.dd)) best = { dd, ex, ez };
+    }
+    if (!best) continue;
+    const dd = Math.max(best.dd, 1e-3), nx = best.ex / dd, nz = best.ez / dd, pen = 2 * R - dd;
+    c.x += nx * pen * 0.6; c.z += nz * pen * 0.6;
+    const vn = (c.vx - (d.vx || 0)) * nx + (c.vz - (d.vz || 0)) * nz;
+    if (vn < 0) {   // equal masses, a little bounce
+      const j = -1.3 * vn / 2;
+      c.vx += j * nx; c.vz += j * nz;
+      c.bump = Math.max(c.bump, Math.min(1, -vn / 14));
+    }
+  }
 }
 function mpGhostList() {
   const out = mp.bots.map(b => ({ key: b.id, f: b.f, hz: b.hz, color: b.color, label: b.name.toUpperCase(), tex: b.tex }));
   mp.players.forEach(p => {
     if (p.uid === net.uid) return;
-    const d = net.drivers.get(p.uid), c = mp.cars.get(p.uid);
-    out.push({ key: p.uid, f: c ? c.f : [], hz: c ? c.hz : 10, color: p.color, label: p.name.toUpperCase(), tex: paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, p.color), live: true });
+    const d = net.drivers.get(p.uid);
+    out.push({ key: p.uid, f: [], hz: 10, color: p.color, label: p.name.toUpperCase(), tex: paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, p.color), remote: true });
   });
   return out;
 }
@@ -3228,7 +3323,8 @@ function mpFinish() {
   clearInterval(mp.pubT);
   mp.phase = 'done';
   const t = +finishTime.toFixed(3);
-  net.db.doc('lobbies/' + mp.id + '/cars/' + net.uid).set({ hz: 10, f: mpPack(), done: t, name: onlineName() }).catch(() => {});
+  net.db.doc('lobbies/' + mp.id + '/cars/' + net.uid).set({ done: t, name: onlineName() }, { merge: true }).catch(() => {});
+  if (net.rt) net.rt.ref('mp/' + mp.id + '/' + net.uid).set(Object.assign(mpPose(), { done: t })).catch(() => {});
   const ahead = mp.bots.filter(b => b.t < t).length + [...mp.cars.values()].filter(c => c.done != null && c.done < t).length;
   const place = ahead + 1, win = place === 1;
   mp.result = { place, win, t };
@@ -3258,6 +3354,7 @@ function renderMpResults() {
 }
 const ordinal = (n) => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th');
 function mpExit(again) {
+  if (net.rt && mp.id) net.rt.ref('mp/' + mp.id + '/' + net.uid).remove().catch(() => {});
   mpReset();
   closeModal();
   loadRace(todayKey);
@@ -3328,10 +3425,11 @@ function setupGhosts() {
   if (mp.active) {
     mp.ghosts = new Map();
     for (const s of mpGhostList()) {
-      const mesh = makeCarMesh(s.color, true, s.tex), label = labelSprite(s.label, s.color);
+      const mesh = makeCarMesh(s.color, !s.remote, s.tex), label = labelSprite(s.label, s.color);
       mesh.add(label); scene.add(mesh);
-      const g = { mesh, label, frames: s.f, hz: s.hz, fade: -1, live: !!s.live, delay: s.live ? MP_DELAY : 0 };
-      ghostObjs.push(g); if (s.live) mp.ghosts.set(s.key, g);
+      if (s.remote) { mesh.visible = false; mesh.castShadow = true; }
+      const g = { mesh, label, frames: s.f, hz: s.hz, fade: -1, remote: !!s.remote };
+      ghostObjs.push(g); if (s.remote) mp.ghosts.set(s.key, g);
     }
     return;
   }
@@ -3347,9 +3445,11 @@ function setupGhosts() {
 }
 function updateGhosts() {
   const t = state === 'countdown' ? 0 : state === 'replay' ? clock : clock + (state === 'racing' || state === 'finished' ? acc : 0);
+  if (mp.active) mpRenderRemote();
   for (const g of ghostObjs) {
-    const F = g.frames, n = Math.floor(F.length / 6), hz = g.hz, tg = Math.max(0, t - (g.delay || 0));
-    g.mesh.visible = ghostsVisible && n >= 2 && (state === 'countdown' || state === 'racing' || state === 'finished' || state === 'replay') && (g.live || t < n / hz + 2);
+    if (g.remote) continue;
+    const F = g.frames, n = Math.floor(F.length / 6), hz = g.hz, tg = t;
+    g.mesh.visible = ghostsVisible && n >= 2 && (state === 'countdown' || state === 'racing' || state === 'finished' || state === 'replay') && t < n / hz + 2;
     if (!g.mesh.visible) continue;
     // fade a ghost out as it nears the camera so it never fills the screen
     const cd = camera.position.distanceTo(g.mesh.position);
