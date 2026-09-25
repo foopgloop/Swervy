@@ -1110,7 +1110,7 @@ function stepCar(c, inp, dt) {
   c.steer += clamp(inp.steer - c.steer, -sRate * dt, sRate * dt);
   c.steerA = c.steer * steerMax(vfB);   // sharp when slow, still plenty at speed
   // gearbox
-  const topF = (SURF[c.surf] || SURF.asphalt).top;
+  const topF = (SURF[c.surf] || SURF.asphalt).top * (inp.throttle || 1);
   if (c.shiftT > 0) c.shiftT -= dt;
   if (c.gear < 7 && vfB > GEAR_V[c.gear] * topF * 0.985) { c.gear++; c.shiftT = 0.2; }
   else if (c.gear > 1 && vfB < GEAR_V[c.gear - 1] * topF * 0.8) c.gear--;
@@ -1184,7 +1184,7 @@ function stepCar(c, inp, dt) {
     let fL = lerp(-vS * 12, -lim * curve, rolling), fF = 0;
     const abs = Math.min(stopF, limF * 0.8);   // anti-lock: braking always leaves some grip for steering
     if (inp.throttle && vfB < -0.5) fF -= Math.sign(vF) * abs;
-    else if (drive) fF += Math.min(9, 45 / Math.max(Math.abs(vfB), 1));   // all-wheel drive; the push tapers with speed like a real engine
+    else if (drive) fF += Math.min(9, 45 / Math.max(Math.abs(vfB), 1)) * inp.throttle;   // all-wheel drive; the push tapers with speed like a real engine
     if (inp.brake) {
       if (vfB > 0.5) fF -= Math.sign(vF) * Math.min(stopF, limF * (front ? 0.75 : 0.35)) * (0.4 + 0.6 * c.brk);   // front-biased like a real car, so the tail doesn't come round
       else if (c.revT > 0.3 && (back > 30 || -vfB < REV_MAX)) fF -= 3;          // past 30 km/h backwards it keeps going
@@ -1202,7 +1202,7 @@ function stepCar(c, inp, dt) {
       // steering gets first call on the grip; drive and brakes use what is left, so holding throttle never dulls the steering
       fL = clamp(fL, -lim, lim);
       const room = limF * Math.sqrt(Math.max(0, 1 - (fL / lim) * (fL / lim)));
-      fF = clamp(fF, -room, room);
+      fF = clamp(fF, -room, room * Math.max(1, inp.throttle));
     }
     if (!front) rearSlip += Math.abs(vS);
     c.spin[k] = vF;
@@ -1213,7 +1213,7 @@ function stepCar(c, inp, dt) {
   }
 
   const hs = Math.hypot(c.vx, c.vz);
-  Fx -= c.vx * hs * 0.0011; Fz -= c.vz * hs * 0.0011;
+  const dk = 0.0011 / (inp.throttle > 1 ? 2.25 : 1); Fx -= c.vx * hs * dk; Fz -= c.vz * hs * dk;
 
   // body against the ground: bumpers, doors and roof
   let body = false;
@@ -3188,7 +3188,7 @@ let steerPref = 0;
 function inputNow() {
   const l = keys.KeyA || keys.ArrowLeft || touch.left, r = keys.KeyD || keys.ArrowRight || touch.right;
   return {
-    throttle: (keys.KeyW || keys.ArrowUp || touch.gas) ? 1 : 0,
+    throttle: keys.KeyW && keys.ArrowUp ? 1.5 : (keys.KeyW || keys.ArrowUp || touch.gas) ? 1 : 0,
     brake: (keys.KeyS || keys.ArrowDown || touch.brake) ? 1 : 0,
     steer: l && r ? steerPref : (l ? 1 : 0) - (r ? 1 : 0),   // both held: the one pressed last wins
     hand: !!(keys.Space || touch.hand),
