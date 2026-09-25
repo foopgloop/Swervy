@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Daily Swerve</title>
+<title>Swerrvle</title>
 <!-- Firebase (compat SDKs — keep the same collection()/doc()/onSnapshot() shape the game code already uses) -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1209,8 +1209,9 @@ function stepCar(c, inp, dt) {
   // boost fills while you drift or fly, and drains while you hold Shift
   c.boosting = boosting && contacts > 0;
   if (c.boosting) c.boost = Math.max(0, c.boost - dt);
-  else if (contacts >= 3 && c.drifting) c.boost = Math.min(3, c.boost + 0.5 * dt);
-  if (!contacts && !body) c.boost = Math.min(3, c.boost + 0.4 * dt);
+  else if (contacts >= 3 && c.drifting) c.boost = Math.min(3, c.boost + 1.2 * dt);
+  else if (contacts >= 3 && Math.hypot(c.vx, c.vz) > 16) c.boost = Math.min(3, c.boost + 0.12 * dt);   // a slow trickle just for keeping speed up
+  if (!contacts && !body) c.boost = Math.min(3, c.boost + 1.0 * dt);
 
   // integrate: linear, then angular in body space (diagonal inertia)
   c.vx += Fx * dt; c.vy += Fy * dt; c.vz += Fz * dt;
@@ -2784,7 +2785,7 @@ function carIcon(s) {
     if (carIconCache.size > 200) carIconCache.clear();
     carIconCache.set(key, url);
     return url;
-  } catch (e) { console.error('Daily Swerve: car icon failed', e); carIconCache.set(key, null); return null; }
+  } catch (e) { console.error('Swerrvle: car icon failed', e); carIconCache.set(key, null); return null; }
 }
 
 /* ---------------- cosmetics: coins, shop items, and the 3D bits they add to a car ---------------- */
@@ -3065,6 +3066,7 @@ function simStep() {
 function passCheckpoint() {
   splits.push(raceTime);
   const k = nextCp;
+  car.boost = Math.min(3, car.boost + 0.5);   // every checkpoint tops up the boost meter
   lastCpIdx = T.cps[k];
   nextCp++;
   const m = gateMats[k + 1]; if (m) m.color.set('#c9f5d9');
@@ -3220,7 +3222,7 @@ function initRealtime(fb) {
       me.onDisconnect().remove().then(() => me.set(true)).catch(() => {});
     });
     net.rt.ref('presence').on('value', (s) => { net.ccu = s.numChildren(); renderCcu(); }, () => {});
-  } catch (e) { console.error('Daily Swerve: realtime database unavailable', e); net.rt = null; }
+  } catch (e) { console.error('Swerrvle: realtime database unavailable', e); net.rt = null; }
 }
 function renderCcu() {
   const el = $('#t-ccu');
@@ -3534,7 +3536,7 @@ async function mpTrySpectate(liveId) {
     $('#hud').hidden = true;
     mp.watchI = 0; mpWatchBar();
     toast('Race in progress · spectating until the next one');
-  } catch (e) { console.error('Daily Swerve: spectate failed', e); }
+  } catch (e) { console.error('Swerrvle: spectate failed', e); }
 }
 function mpStopSpectate() {
   if (!mp.spec) return;
@@ -4531,7 +4533,7 @@ function showFinish(entry, prevBest, rank, posting) {
     cells.push(`<div title="${seg.toFixed(3)} s"><i class="${cls}"></i>${i === entry.splits.length - 1 ? 'FIN' : 'S' + (i + 1)}</div>`);
   });
   $('#f-splits').innerHTML = cells.join('');
-  const text = `Daily Swerve #${raceNo(raceKey)} · ${prettyDate(raceKey)}\n${T.name}${myName() ? ' · ' + myName() : ''}\n🏁 ${fmt(entry.t)}${medal ? ' ' + medal.emoji : ''}\n${emo.join('')}`;
+  const text = `Swerrvle #${raceNo(raceKey)} · ${prettyDate(raceKey)}\n${T.name}${myName() ? ' · ' + myName() : ''}\n🏁 ${fmt(entry.t)}${medal ? ' ' + medal.emoji : ''}\n${emo.join('')}`;
   const ta = $('#f-sharetext'); ta.value = text; ta.hidden = true;
   $('#finish').hidden = false;
 }
@@ -4596,7 +4598,7 @@ function openModal(kind) {
       <h3>Boosts</h3>
       <p>Ramps give a boost. You leave a ramp faster than you hit it.</p>
       <p>Reverse gives a boost too. Above 30 km/h backwards, holding reverse keeps speeding you up.</p>
-      <p>The boost meter fills while you drift and while you are in the air, up to 3 seconds. Hold <kbd>Shift</kbd> to spend it.</p>
+      <p>The boost meter fills fast while you drift or fly, slowly while you keep your speed up, and every checkpoint adds half a second, up to 3 seconds. Hold <kbd>Shift</kbd> to spend it.</p>
       <h3>Paint</h3>
       <p>Customize opens the garage: paint the car in Paint, or spend coins in the Shop on hood ornaments, engine parts, roof toppers, wings and stickers. Paint straight onto the car with the pencil, brush or fill, pick colours off the car, or start from a preset. With a driver name, other racers see your paint on your ghost.</p>
       <h3>Rolling over</h3>
@@ -4779,7 +4781,7 @@ function loadRace(key) {
       clearFx();
     } catch (e) { showLoadError(e); return; }
     // everything below is optional: if one part fails the race still loads without it
-    const soft = (what, fn) => { try { fn(); } catch (e) { console.error('Daily Swerve: ' + what + ' failed', e); } };
+    const soft = (what, fn) => { try { fn(); } catch (e) { console.error('Swerrvle: ' + what + ' failed', e); } };
     soft('pace car', () => { T.rival = simulateRival(); });
     soft('ultra pace', () => { T.ultra = simulateUltra(); });
     if (T.rival && (!T.ultra || T.ultra.t > T.rival.t)) T.ultra = T.rival;   // never slower than the pace car
