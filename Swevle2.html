@@ -2729,7 +2729,6 @@ async function initNet() {
     }, () => { net.ready = false; refreshBoards(); });
     net.auth.onAuthStateChanged(async (u) => {
       net.uid = u ? u.uid : null; net.user = u || null;
-      if (!u && !net.askedSignIn && $('#modal').hidden) { net.askedSignIn = true; openModal('signin'); }
       if (u) await pullAccount();
       refreshBoards();
       if (state === 'title') renderTitle();
