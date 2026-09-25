@@ -110,23 +110,29 @@ kbd{font:700 9px/1 var(--ui);min-width:20px;padding:5px 5px;border:1.5px solid v
 .g-paint{display:flex;flex-direction:column;gap:10px}
 .g-tabs{display:flex}
 .g-tabs button{flex:1}
-.gs-top{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--paper-2)}
-.gs-top b{font:800 18px/1 var(--mono);white-space:nowrap}
-.gs-top span{font:600 11px/1.35 var(--ui);color:var(--muted)}
-.gs-slots{display:flex;flex-wrap:wrap;gap:6px}
-.gs-slots button{flex:1;min-height:34px;border:1px solid var(--line);border-radius:4px;background:var(--paper-2);font:800 10.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
-.gs-slots button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
-.gs-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.gs-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper-2);cursor:pointer;font:700 12px/1.2 var(--ui);color:var(--ink);text-align:center}
-.gs-item:hover{background:#fff}
-.gs-item .ic{font-size:30px;line-height:1}
-.gs-item small{font:800 10px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.g-shop{display:flex;flex-direction:column;gap:8px}
+.gs-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gs-top b{font:800 16px/1 var(--mono);white-space:nowrap;padding:7px 10px;border-radius:999px;background:var(--ink);color:#ffd36b}
+.gs-top span{font:600 10.5px/1.3 var(--ui);color:var(--muted);text-align:right}
+.gs-slots{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.gs-slots button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px 6px;border:0;background:var(--paper-2);font:800 8.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--muted)}
+.gs-slots button+button{border-left:1px solid var(--line)}
+.gs-slots button i{font-style:normal;font-size:17px;line-height:1}
+.gs-slots button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.gs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.gs-item{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px 7px;border:1px solid var(--line);border-radius:6px;background:var(--paper-2);cursor:pointer;font:700 10.5px/1.15 var(--ui);color:var(--ink);text-align:center;min-height:86px;justify-content:space-between}
+.gs-item:hover{background:#fff;border-color:#b9bbad}
+.gs-item .ic{font-size:24px;line-height:1}
+.gs-item .nm{min-height:2.3em;display:flex;align-items:center}
+.gs-item small{font:800 9px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
 .gs-item.eq{border-color:var(--teal);box-shadow:inset 0 0 0 2px var(--teal)}
 .gs-item.eq small{color:var(--teal)}
+.gs-item.eq::after{content:"✓";position:absolute;top:4px;right:6px;font:800 11px/1 var(--ui);color:var(--teal)}
 .gs-item.pv{border-color:var(--go);box-shadow:inset 0 0 0 2px var(--go)}
-.gs-item .buy{margin-top:2px;min-height:30px;padding:0 10px;border:0;border-radius:4px;background:var(--go);color:#fff;font:800 11px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+.gs-item.own small{color:var(--ink)}
+.gs-item .buy{width:100%;min-height:24px;padding:0 4px;border:0;border-radius:4px;background:var(--go);color:#fff;font:800 9.5px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
 .gs-item .buy:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
-.gs-item.none .ic{opacity:.5}
+.gs-item.none .ic{opacity:.45}
 .g-row > *{flex:1}
 .g-tools button,.g-row button,.g-row select{min-height:36px;border:1px solid var(--line);border-radius:4px;background:var(--paper-2);font:800 11px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
 .g-tools button[aria-pressed="true"],.g-row button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -457,7 +463,7 @@ body.touch .key-legend{display:none}
     <div class="g-head"><h2>Customize</h2><button class="btn go" id="g-done">Done</button></div>
     <div class="seg g-tabs" id="g-tabs"><button data-gtab="paint" aria-pressed="true">Paint</button><button data-gtab="shop" aria-pressed="false">Shop</button></div>
     <div id="g-shop" class="g-shop" hidden>
-      <div class="gs-top"><b id="gs-coins">🪙 0</b><span>Earn coins by racing: finishes, personal bests, medals and multiplayer wins.</span></div>
+      <div class="gs-top"><b id="gs-coins">🪙 0</b><span>Earn coins from finishes, best times, medals and multiplayer.</span></div>
       <div class="gs-slots" id="gs-slots"></div>
       <div class="gs-grid" id="gs-grid"></div>
     </div>
@@ -2477,26 +2483,26 @@ function setGarageTab(t) {
 function renderShop() {
   renderCoins();
   const sl = $('#gs-slots'); sl.textContent = '';
-  COS_SLOTS.forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.setAttribute('aria-pressed', String(k === shopSlot)); b.onclick = () => { shopSlot = k; renderShop(); }; sl.append(b); });
+  COS_SLOTS.forEach(([k, name]) => { const b = document.createElement('button'); b.innerHTML = '<i>' + COS_SLOT_ICON[k] + '</i>' + name; b.setAttribute('aria-pressed', String(k === shopSlot)); b.onclick = () => { shopSlot = k; renderShop(); }; sl.append(b); });
   const grid = $('#gs-grid'); grid.textContent = '';
   const eq = wallet.cos[shopSlot];
   const none = document.createElement('button'); none.className = 'gs-item none' + (!eq ? ' eq' : '');
-  none.innerHTML = '<span class="ic">🚫</span>None<small>' + (!eq ? 'Equipped' : 'Take off') + '</small>';
+  none.innerHTML = '<span class="ic">🚫</span><span class="nm">None</span><small>' + (!eq ? 'On' : 'Take off') + '</small>';
   none.onclick = () => { cosPreview = null; delete wallet.cos[shopSlot]; saveWallet(); refreshMyCosmetics(); renderShop(); };
   grid.append(none);
   COS_ITEMS.filter(it => it.slot === shopSlot).forEach(it => {
     const owned = wallet.owned.includes(it.id), on = eq === it.id, pv = cosPreview && cosPreview.id === it.id;
-    const el = document.createElement('div'); el.className = 'gs-item' + (on ? ' eq' : '') + (pv ? ' pv' : ''); el.tabIndex = 0;
+    const el = document.createElement('div'); el.className = 'gs-item' + (on ? ' eq' : '') + (pv ? ' pv' : '') + (owned ? ' own' : ''); el.tabIndex = 0; el.title = it.name;
     const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = it.icon;
-    const nm = document.createElement('span'); nm.textContent = it.name;
-    const sm = document.createElement('small'); sm.textContent = on ? 'Equipped' : owned ? 'Owned · equip' : pv ? 'Previewing' : '🪙 ' + it.price;
-    el.append(ic, nm, sm);
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = it.name;
+    const sm = document.createElement('small'); sm.textContent = on ? 'On' : owned ? 'Owned' : '🪙 ' + it.price;
+    el.append(ic, nm);
     if (pv && !owned) {
-      const b = document.createElement('button'); b.className = 'buy'; b.textContent = 'Buy · 🪙 ' + it.price; b.disabled = wallet.coins < it.price;
+      const b = document.createElement('button'); b.className = 'buy'; b.textContent = 'Buy 🪙' + it.price; b.disabled = wallet.coins < it.price;
       if (b.disabled) b.title = 'Not enough coins yet';
       b.onclick = (e) => { e.stopPropagation(); buyCos(it); };
       el.append(b);
-    }
+    } else el.append(sm);
     el.onclick = () => {
       if (owned) { cosPreview = null; if (on) delete wallet.cos[it.slot]; else wallet.cos[it.slot] = it.id; saveWallet(); }
       else cosPreview = pv ? null : { slot: it.slot, id: it.id };
@@ -2789,7 +2795,8 @@ function carIcon(s) {
 
 /* ---------------- cosmetics: coins, shop items, and the 3D bits they add to a car ---------------- */
 // slots: hood ornament, engine bay (pokes through the hood), roof topper, rear, sticker (decals on both doors and the hood)
-const COS_SLOTS = [['hood', 'Hood'], ['bay', 'Engine'], ['roof', 'Roof'], ['rear', 'Rear'], ['sticker', 'Stickers']];
+const COS_SLOTS = [['hood', 'Hood'], ['bay', 'Engine'], ['roof', 'Roof'], ['rear', 'Rear'], ['sticker', 'Decals']];
+const COS_SLOT_ICON = { hood: '⭐', bay: '⚙️', roof: '🦆', rear: '🏁', sticker: '🏷️' };
 const COS_ITEMS = [
   { id: 'star', slot: 'hood', name: 'Chrome star', price: 50, icon: '⭐' },
   { id: 'flame', slot: 'hood', name: 'Flame', price: 80, icon: '🔥' },
@@ -2858,6 +2865,35 @@ function dailyCoins(entry, prevBest) {
 const _cosMats = {};
 function cosMat(key, make) { return _cosMats[key] || (_cosMats[key] = make()); }
 const _stickerTex = {};
+// NeoDogez sticker: the channel's profile picture in a red badge. The picture loads from YouTube with CORS;
+// until it arrives (or if it can't), the badge shows a paw instead.
+const NEO_PFP = 'https://yt3.ggpht.com/I8F6TbS8lK3hly1vAlokd8rM4ZsRSeuv81-_0V1VSvOnrTDO-H6UF1MPE1pc7ILogVsBOh3U_L4=s176-c-k-c0x00ffffff-no-rj';
+let neoImg = null;
+function drawNeoSticker(g) {
+  g.clearRect(0, 0, 256, 256);
+  g.fillStyle = '#ff0000'; g.beginPath(); g.roundRect ? g.roundRect(10, 10, 236, 236, 34) : g.rect(10, 10, 236, 236); g.fill();
+  g.lineWidth = 8; g.strokeStyle = '#ffffff'; g.stroke();
+  g.save(); g.beginPath(); g.arc(128, 104, 74, 0, Math.PI * 2); g.closePath();
+  g.fillStyle = '#ffffff'; g.fill();
+  if (neoImg) { g.clip(); g.drawImage(neoImg, 54, 30, 148, 148); }
+  else { g.fillStyle = '#d98c3c'; [[128, 122, 30, 26], [96, 88, 11, 14], [116, 72, 11, 14], [140, 72, 11, 14], [160, 88, 11, 14]].forEach(([x, y, rx, ry]) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); }); }
+  g.restore();
+  g.lineWidth = 7; g.strokeStyle = '#ffffff'; g.beginPath(); g.arc(128, 104, 74, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = '#ffffff'; g.font = 'bold 40px Anton, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NEODOGEZ', 128, 212);
+}
+(function loadNeoPfp() {
+  try {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      neoImg = im;
+      const t = _stickerTex.neo;
+      if (t) { drawNeoSticker(t.image.getContext('2d')); t.needsUpdate = true; }
+      if (typeof carIconCache !== 'undefined') carIconCache.clear();
+      if (typeof refreshBoards === 'function') try { refreshBoards(); } catch (e) {}
+    };
+    im.src = NEO_PFP;
+  } catch (e) {}
+})();
 function stickerTex(id) {
   if (_stickerTex[id]) return _stickerTex[id];
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
@@ -2881,8 +2917,7 @@ function stickerTex(id) {
     for (let i = 0; i < 5; i++) { const y = 70 + i * 28; g.quadraticCurveTo(90 + i * 20, y - 40, 250 - i * 10, y); g.quadraticCurveTo(120 + i * 20, y + 10, 40, y + 20); }
     g.lineTo(0, 236); g.closePath(); g.fill(); g.lineWidth = 6; g.strokeStyle = '#8a1a10'; g.stroke();
   } else if (id === 'neo') {
-    g.fillStyle = '#ff0000'; g.fillRect(8, 78, 240, 100); g.lineWidth = 8; g.strokeStyle = '#fff'; g.strokeRect(8, 78, 240, 100);
-    g.fillStyle = '#fff'; g.font = 'bold 50px Anton, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NEODOGEZ', 128, 130);
+    drawNeoSticker(g);
   } else star(128, 128, 118, 50, '#fff', '#13202a');
   const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; KEEP_TEX.add(t);
   return (_stickerTex[id] = t);
@@ -2963,15 +2998,32 @@ function buildCosmetics(cos, ghost) {
       put(B(0.3, 0.08, 0.08), L(0xd8281e), 0, RY + 0.84, -0.22); break;
     }
     case 'shiba': {
-      const o = L(0xd98c3c), cr = L(0xf6e7cf), bk = L(0x1c2026);
-      for (const [x, z] of [[0.1, -0.05], [-0.1, -0.05], [0.1, -0.5], [-0.1, -0.5]]) put(B(0.09, 0.22, 0.09), o, x, RY + 0.11, z);
-      put(B(0.34, 0.26, 0.62), o, 0, RY + 0.34, -0.28); put(B(0.26, 0.18, 0.3), cr, 0, RY + 0.29, -0.1);
-      put(B(0.34, 0.3, 0.3), o, 0, RY + 0.6, 0.08); put(B(0.2, 0.13, 0.16), cr, 0, RY + 0.52, 0.28); put(B(0.08, 0.06, 0.05), bk, 0, RY + 0.58, 0.37);
-      put(B(0.3, 0.1, 0.02), cr, 0, RY + 0.52, 0.235);
-      put(S(0.03), bk, 0.08, RY + 0.66, 0.235); put(S(0.03), bk, -0.08, RY + 0.66, 0.235);
-      put(K(0.07, 0.16, 4), o, 0.11, RY + 0.82, 0.06, 0, Math.PI / 4); put(K(0.07, 0.16, 4), o, -0.11, RY + 0.82, 0.06, 0, Math.PI / 4);
-      put(K(0.035, 0.08, 4), cr, 0.11, RY + 0.8, 0.09, 0, Math.PI / 4); put(K(0.035, 0.08, 4), cr, -0.11, RY + 0.8, 0.09, 0, Math.PI / 4);
-      put(new THREE.TorusGeometry(0.1, 0.045, 6, 12, Math.PI * 1.5), o, 0, RY + 0.58, -0.6, 0, Math.PI / 2); break;
+      // a standing Shiba Inu: rounded red-sesame coat, cream "urajiro" chest, muzzle, cheeks and eyebrow dots, curled tail
+      const o = L(0xd8843a), dk = L(0xb7652a), cr = L(0xf7ead6), bk = L(0x1c2026), pk = L(0xe07a8a);
+      const z0 = -0.32, y0 = RY;
+      for (const [x, z] of [[0.09, z0 + 0.2], [-0.09, z0 + 0.2], [0.09, z0 - 0.2], [-0.09, z0 - 0.2]]) {
+        put(C(0.045, 0.04, 0.22, 8), o, x, y0 + 0.11, z); put(S(0.05), cr, x, y0 + 0.02, z + 0.02, 0, 0, 0, 1, 0.6, 1.2);
+      }
+      put(S(0.2), o, 0, y0 + 0.34, z0, 0, 0, 0, 0.95, 0.85, 1.45);              // body
+      put(S(0.16), cr, 0, y0 + 0.28, z0 + 0.14, 0, 0, 0, 0.9, 0.9, 1.1);        // chest/belly
+      put(S(0.1), o, 0, y0 + 0.43, z0 + 0.24);                                   // neck
+      const hz = z0 + 0.36, hy = y0 + 0.56;
+      put(S(0.15), o, 0, hy, hz, 0, 0, 0, 1.05, 0.95, 1);                        // head
+      put(S(0.1), cr, 0.075, hy - 0.04, hz + 0.08, 0, 0, 0, 0.8, 0.7, 0.8);      // cheeks
+      put(S(0.1), cr, -0.075, hy - 0.04, hz + 0.08, 0, 0, 0, 0.8, 0.7, 0.8);
+      put(S(0.075), cr, 0, hy - 0.035, hz + 0.15, 0, 0, 0, 1, 0.8, 1.2);         // muzzle
+      put(S(0.028), bk, 0, hy - 0.005, hz + 0.235);                              // nose
+      put(B(0.05, 0.012, 0.02), pk, 0, hy - 0.085, hz + 0.19);                   // tongue
+      put(S(0.024), bk, 0.06, hy + 0.035, hz + 0.13); put(S(0.024), bk, -0.06, hy + 0.035, hz + 0.13);   // eyes
+      put(S(0.016), cr, 0.065, hy + 0.08, hz + 0.115); put(S(0.016), cr, -0.065, hy + 0.08, hz + 0.115); // eyebrow dots
+      for (const x of [0.085, -0.085]) {
+        put(K(0.06, 0.13, 4), o, x, hy + 0.15, hz - 0.01, -0.12, Math.PI / 4, x > 0 ? -0.18 : 0.18);     // ears
+        put(K(0.032, 0.08, 4), dk, x, hy + 0.14, hz + 0.012, -0.12, Math.PI / 4, x > 0 ? -0.18 : 0.18);
+      }
+      const tail = put(new THREE.TorusGeometry(0.075, 0.035, 8, 16, Math.PI * 1.7), o, 0, y0 + 0.5, z0 - 0.26, 0, Math.PI / 2, 0.6);
+      put(S(0.04), cr, 0, y0 + 0.57, z0 - 0.2);                                  // tail tip
+      tail.castShadow = !ghost;
+      break;
     }
   }
   switch (cos.rear) {
