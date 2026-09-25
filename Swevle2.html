@@ -246,6 +246,17 @@ body.touch #flip .k-touch{display:inline}
 .board.rank .tm small{display:block;margin-top:3px;font:700 9px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .board li.top1 .rk{color:var(--gold);font-weight:800} .board li.top2 .rk{color:#8f9aa1;font-weight:800} .board li.top3 .rk{color:var(--bronze);font-weight:800}
 .mb-tabs{margin:2px 0 10px}
+.doge-peek{position:fixed;z-index:9;left:-40px;bottom:-230px;width:190px;padding:0;border:0;background:none;cursor:pointer;transition:bottom .6s cubic-bezier(.3,1.5,.5,1),transform .25s}
+.doge-peek.in{bottom:-70px}
+.doge-peek img{width:100%;display:block;transform:rotate(14deg);filter:drop-shadow(0 8px 14px rgba(0,0,0,.35));pointer-events:none}
+.doge-peek.big{transform:scale(1.18);transform-origin:bottom left}
+.doge-peek.hop img{animation:dogeHop .35s}
+.doge-peek.spin img{animation:dogeSpin 1.2s ease-in}
+@keyframes dogeHop{0%{transform:rotate(14deg) translateY(0)}40%{transform:rotate(4deg) translateY(-26px)}100%{transform:rotate(14deg) translateY(0)}}
+@keyframes dogeSpin{to{transform:rotate(734deg) scale(.2);opacity:0}}
+.doge-say{position:absolute;left:150px;top:40px;white-space:nowrap;font:800 26px/1 "Comic Sans MS","Comic Neue",cursive;color:#ff2fb3;text-shadow:0 2px 0 #fff,0 0 12px #fff;transform:rotate(-8deg)}
+.secret-hero{display:flex;justify-content:center;margin:-8px 0 6px}
+.secret-hero img{height:120px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
 .btn .coins{font:800 11px/1 var(--mono);letter-spacing:0;color:var(--muted);text-transform:none}
 .ccu{position:absolute;top:22px;right:24px;display:inline-flex;align-items:center;gap:6px;font:800 10px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--good)}
 .ccu i{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px rgba(31,157,91,.18)}
@@ -919,6 +930,7 @@ function shortcutAt(x, z) {
   return null;
 }
 function offRoad(x, z, alat, ry, nearRoad) {
+  if (T.parkour) { GI.y = terrainH(x, z); GI.surf = 'grass'; return GI; }   // the sky road has a sheer drop
   const sc = shortcutAt(x, z);
   if (sc && nearRoad && alat < HALF_W + 10) sc.y = lerp(ry, sc.y, smooth(HALF_W, HALF_W + 10, alat));   // ease off the tarmac
   if (sc && sc.on) { GI.y = sc.y; GI.surf = 'dirt'; GI.sc = true; return GI; }
@@ -944,7 +956,7 @@ function groundInfo(x, z, hint) {
   const alat = Math.abs(lat);
   GI.lat = offEnd ? 999 : lat;
   const ry = T.Y[jj] + (T.Y[jj + 1] - T.Y[jj]) * frac + 0.02;
-  if (!offEnd && alat <= HALF_W + 0.15) {
+  if (!offEnd && alat <= HALF_W + 0.15 && !(T.gaps && inGap((jj + frac) * T.ds))) {
     const s = (jj + frac) * T.ds;
     let r = 0;
     if (alat <= RAMP_HALF) for (const rp of T.ramps) if (s >= rp.s0 && s <= rp.s1) { r = (s - rp.s0) / (rp.s1 - rp.s0) * rp.h; break; }
@@ -1770,7 +1782,7 @@ function buildRoadMesh() {
     pos.set([T.X[i] - rx * HALF_W, y, T.Z[i] - rz * HALF_W, T.X[i] + rx * HALF_W, y, T.Z[i] + rz * HALF_W], i * 6);
     c.copy(cols[T.S[i]]); c.offsetHSL(0, 0, patch);
     col.set([c.r, c.g, c.b, c.r, c.g, c.b], i * 6);
-    if (i < N - 1) { const a = 2 * i, b = a + 1, cc = a + 2, d = a + 3; idx.push(a, b, cc, b, d, cc); }
+    if (i < N - 1 && !(T.gaps && T.gaps.some(g => i >= g.i0 && i < g.i1))) { const a = 2 * i, b = a + 1, cc = a + 2, d = a + 3; idx.push(a, b, cc, b, d, cc); }
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -1811,6 +1823,7 @@ function buildLines() {
   const curbR = new THREE.Color('#d8412f'), curbW = new THREE.Color('#f1efe6');
   const E = HALF_W - 0.5, w = 0.11;
   for (let i = 0; i < T.N - 1; i++) {
+    if (T.gaps && T.gaps.some(g => i >= g.i0 - 1 && i < g.i1)) continue;
     const s = T.S[i];
     if (s === 0) {
       const bend = Math.abs(wrapA(T.HEAD[Math.min(T.N - 1, i + 3)] - T.HEAD[Math.max(0, i - 3)])) / (6 * T.ds);
@@ -1832,11 +1845,17 @@ function buildLines() {
 
 function buildSkirt() {
   const q = quadBuilder(), c = new THREE.Color('#4a4038');
+  const deep = T.parkour ? -1.4 : -5, under = new THREE.Color('#2e3a44');
   for (let i = 0; i < T.N - 1; i++) {
+    if (T.gaps && T.gaps.some(g => i >= g.i0 && i < g.i1)) continue;
     for (const side of [-1, 1]) {
       const j = i + 1, l = side * HALF_W;
       const P = (k, dy) => [T.X[k] + (-T.TZ[k]) * l, T.Y[k] + dy, T.Z[k] + T.TX[k] * l];
-      q.raw([P(i, 0.02), P(i, -5), P(j, 0.02), P(i, -5), P(j, -5), P(j, 0.02)], c);
+      q.raw([P(i, 0.02), P(i, deep), P(j, 0.02), P(i, deep), P(j, deep), P(j, 0.02)], c);
+    }
+    if (T.parkour) {   // the slab's underside, seen when you fly over a gap
+      const U = (k, l) => [T.X[k] + (-T.TZ[k]) * l, T.Y[k] + deep, T.Z[k] + T.TX[k] * l];
+      q.raw([U(i, -HALF_W), U(i + 1, -HALF_W), U(i, HALF_W), U(i + 1, -HALF_W), U(i + 1, HALF_W), U(i, HALF_W)], under);
     }
   }
   return q.mesh(lambertVC({ side: THREE.DoubleSide }));
@@ -2350,8 +2369,53 @@ function paintTextureFor(str, fallback) {   // other drivers' paint jobs, and pl
 
 // presets are painted from each texel's position on the car: +x is the left side, +z the front, y up
 const DIGIT7 = ['111', '001', '010', '010', '010'];
+// NeoDogez sponsor decal: a slim race-car sponsor badge with the Doge from the repo (served by jsDelivr, which
+// sends CORS headers, so the canvas stays usable as a WebGL texture). Until it loads the badge shows a paw.
+const DOGE_URL = 'https://cdn.jsdelivr.net/gh/foopgloop/Swervy@main/doge.png';
+let dogeImg = null;
+const dogeWaiters = [];
+function drawNeoSticker(g) {
+  const W = 512, H = 192, r = 34;
+  g.clearRect(0, 0, W, H);
+  const rr = (x, y, w, h, q) => { g.beginPath(); g.moveTo(x + q, y); g.arcTo(x + w, y, x + w, y + h, q); g.arcTo(x + w, y + h, x, y + h, q); g.arcTo(x, y + h, x, y, q); g.arcTo(x, y, x + w, y, q); g.closePath(); };
+  rr(6, 6, W - 12, H - 12, r); g.fillStyle = '#13202a'; g.fill(); g.lineWidth = 6; g.strokeStyle = '#f5f7fa'; g.stroke();
+  g.save(); rr(6, 6, 170, H - 12, r); g.clip(); g.fillStyle = '#ffc93c'; g.fillRect(6, 6, 170, H - 12); g.restore();
+  g.fillStyle = '#ff5a36'; g.fillRect(176, 132, W - 200, 10);
+  g.save(); g.beginPath(); g.arc(91, 96, 70, 0, Math.PI * 2); g.fillStyle = '#fff6df'; g.fill(); g.clip();
+  if (dogeImg) g.drawImage(dogeImg, 150, 0, 420, 420, 21, 26, 140, 140);
+  else { g.fillStyle = '#d98c3c'; [[91, 112, 26, 22], [62, 82, 10, 12], [80, 66, 10, 12], [102, 66, 10, 12], [120, 82, 10, 12]].forEach(([x, y, a, b]) => { g.beginPath(); g.ellipse(x, y, a, b, 0, 0, Math.PI * 2); g.fill(); }); }
+  g.restore();
+  g.fillStyle = '#ffffff'; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  let fs = 64; do { g.font = 'italic 900 ' + fs + 'px Archivo, "Arial Black", Impact, sans-serif'; } while (g.measureText('NEODOGEZ').width > W - 222 && --fs > 30);
+  g.fillText('NEODOGEZ', 196, 112);
+  g.fillStyle = '#9fb0ba'; g.font = '800 20px Archivo, system-ui, sans-serif'; g.fillText('OFFICIAL SPONSOR', 198, 170);
+}
+function whenDoge(fn) { if (dogeImg) fn(dogeImg); else dogeWaiters.push(fn); }
+(function loadDoge() {
+  try {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      dogeImg = im;
+      const t = _stickerTex.neo;
+      if (t) { drawNeoSticker(t.image.getContext('2d')); t.needsUpdate = true; }
+      if (typeof carIconCache !== 'undefined') carIconCache.clear();
+      dogeWaiters.splice(0).forEach(f => { try { f(im); } catch (e) {} });
+      if (typeof refreshBoards === 'function') try { refreshBoards(); } catch (e) {}
+    };
+    im.src = DOGE_URL;
+  } catch (e) {}
+})();
 const PRESETS = {
   blank: { name: 'Blank', fn: (x, y, z, f, base) => base },
+  // secret: unlocked by clearing the Doge parkour level. Shiba coat with a cream belly, the Doge's face on the roof and hood.
+  doge: { name: 'Doge (secret)', secret: true, fn: (x, y, z, f) => {
+    const face = dogePixel(x, y, z, f);
+    if (face != null) return face;
+    if (f === 4) return 0xf6e7cf;                                   // cream nose
+    if (y < 0.6) return 0xf6e7cf;                                   // cream underside
+    if (f === 0 || f === 1) { const w = Math.sin(z * 3.1) * 0.05; return y < 0.72 + w ? 0xf2d4a8 : 0xd98c3c; }
+    return Math.abs(x) > 0.85 ? 0xc47a34 : 0xd98c3c;
+  } },
   raceday: { name: 'Race day', fn: (x, y, z, f) => {
     const side = f === 0 || f === 1;
     if (!side) { const a = Math.abs(x); return a > 0.1 && a < 0.36 ? 0x1d3c8f : a >= 0.36 && a < 0.44 ? 0xd8412f : 0xf4f4ef; }
@@ -2412,6 +2476,27 @@ const PRESETS = {
     return 0xf2b632;
   } }
 };
+// samples the Doge picture for the roof top and hood (null when the picture isn't loaded or the texel is elsewhere)
+let dogeData = null;
+function dogePixel(x, y, z, f) {
+  if (!dogeData || f !== 2) return null;
+  let u, v;
+  if (y > 1.9) { u = (x + 1.02) / 2.04; v = (z + 1.85) / 2.7; }          // roof: the whole face
+  else if (z > 0.95) { u = (x + 1.05) / 2.1; v = (z - 0.95) / 1.2; }    // hood: a smaller one
+  else return null;
+  const W = dogeData.width, H = dogeData.height;
+  const px = Math.floor(clamp(1 - u, 0, 0.999) * 400 + 150), py = Math.floor(clamp(1 - v, 0, 0.999) * 420 + 0);
+  const k = (Math.min(H - 1, py) * W + Math.min(W - 1, px)) * 4, d = dogeData.data;
+  if (d[k + 3] < 128) return 0x7cc4e8;   // transparent background: sky blue
+  return (d[k] << 16) | (d[k + 1] << 8) | d[k + 2];
+}
+whenDoge((im) => {
+  try { const cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight; const g = cv.getContext('2d'); g.drawImage(im, 0, 0); dogeData = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { dogeData = null; }
+});
+function fillPresetSelect() {
+  const sel = $('#g-preset'); if (!sel) return;
+  sel.innerHTML = Object.entries(PRESETS).filter(([k, p]) => !p.secret || store.get('ds:dogePaint', false)).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join('');
+}
 function applyPreset(name, px, base) {
   const P = PRESETS[name] || PRESETS.blank;
   px.fill(base);
@@ -2462,7 +2547,7 @@ function setGrid(on) {
 }
 
 function openGarage() {
-  if (!T || !carMesh || state === 'loading' || mp.active || mp.spec) return;
+  if (!T || !carMesh || state === 'loading' || mp.active || mp.spec || secret.active) return;
   closeModal(); closeMenu(); hideCards();
   $('#hud').hidden = true; $('#touch').hidden = true;
   car = spawnCar(); state = 'garage';
@@ -2678,7 +2763,7 @@ function initGarage() {
   $('#g-light').oninput = fromSliders;
   $('#g-hex').oninput = (e) => { const v = e.target.value.trim(); if (/^#?[0-9a-f]{6}$/i.test(v)) setColor(parseInt(v.replace('#', ''), 16)); };
   const sel = $('#g-preset');
-  sel.innerHTML = Object.entries(PRESETS).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join('');
+  fillPresetSelect();
   $('#g-load').onclick = () => {
     pushUndo();
     if (sel.value === 'blank') {   // blank takes the colour you have picked, and it becomes the base (pillars, eraser)
@@ -2865,38 +2950,10 @@ function dailyCoins(entry, prevBest) {
 const _cosMats = {};
 function cosMat(key, make) { return _cosMats[key] || (_cosMats[key] = make()); }
 const _stickerTex = {};
-// NeoDogez sticker: the channel's profile picture in a red badge. The picture loads from YouTube with CORS;
-// until it arrives (or if it can't), the badge shows a paw instead.
-const NEO_PFP = 'https://yt3.ggpht.com/I8F6TbS8lK3hly1vAlokd8rM4ZsRSeuv81-_0V1VSvOnrTDO-H6UF1MPE1pc7ILogVsBOh3U_L4=s176-c-k-c0x00ffffff-no-rj';
-let neoImg = null;
-function drawNeoSticker(g) {
-  g.clearRect(0, 0, 256, 256);
-  g.fillStyle = '#ff0000'; g.beginPath(); g.roundRect ? g.roundRect(10, 10, 236, 236, 34) : g.rect(10, 10, 236, 236); g.fill();
-  g.lineWidth = 8; g.strokeStyle = '#ffffff'; g.stroke();
-  g.save(); g.beginPath(); g.arc(128, 104, 74, 0, Math.PI * 2); g.closePath();
-  g.fillStyle = '#ffffff'; g.fill();
-  if (neoImg) { g.clip(); g.drawImage(neoImg, 54, 30, 148, 148); }
-  else { g.fillStyle = '#d98c3c'; [[128, 122, 30, 26], [96, 88, 11, 14], [116, 72, 11, 14], [140, 72, 11, 14], [160, 88, 11, 14]].forEach(([x, y, rx, ry]) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); }); }
-  g.restore();
-  g.lineWidth = 7; g.strokeStyle = '#ffffff'; g.beginPath(); g.arc(128, 104, 74, 0, Math.PI * 2); g.stroke();
-  g.fillStyle = '#ffffff'; g.font = 'bold 40px Anton, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NEODOGEZ', 128, 212);
-}
-(function loadNeoPfp() {
-  try {
-    const im = new Image(); im.crossOrigin = 'anonymous';
-    im.onload = () => {
-      neoImg = im;
-      const t = _stickerTex.neo;
-      if (t) { drawNeoSticker(t.image.getContext('2d')); t.needsUpdate = true; }
-      if (typeof carIconCache !== 'undefined') carIconCache.clear();
-      if (typeof refreshBoards === 'function') try { refreshBoards(); } catch (e) {}
-    };
-    im.src = NEO_PFP;
-  } catch (e) {}
-})();
+
 function stickerTex(id) {
   if (_stickerTex[id]) return _stickerTex[id];
-  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const cv = document.createElement('canvas'); cv.width = id === 'neo' ? 512 : 256; cv.height = id === 'neo' ? 192 : 256;
   const g = cv.getContext('2d'); g.lineJoin = 'round';
   const star = (cx, cy, R, r, fill, stroke) => { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.closePath(); g.fillStyle = fill; g.fill(); if (stroke) { g.lineWidth = 10; g.strokeStyle = stroke; g.stroke(); } };
   if (id === 'num7') {
@@ -2983,11 +3040,19 @@ function buildCosmetics(cos, ghost) {
       put(C(0.06, 0.06, 0.18, 8), gr, -0.15, RY + 0.4, -0.3, 0, 0, Math.PI / 2); put(C(0.06, 0.06, 0.2, 8), gr, -0.23, RY + 0.5, -0.3);
       put(S(0.06), L(0xff8fb1), 0, RY + 0.82, -0.3); break;
     }
-    case 'dice':
-      put(B(0.3, 0.3, 0.3), L(0xff8fb1), 0.2, RY + 0.15, -0.3, 0, 0.4); put(B(0.3, 0.3, 0.3), L(0xffffff), -0.2, RY + 0.15, -0.25, 0, -0.3);
-      for (const [x, z] of [[0.2, -0.14], [0.1, -0.2], [0.3, -0.08]]) put(S(0.035), L(0x13202a), x, RY + 0.31, z);
-      for (const [x, z] of [[-0.25, -0.2], [-0.15, -0.3]]) put(S(0.035), L(0xd8281e), x, RY + 0.31, z);
+    case 'dice': {
+      // each die is its own group, so the pips turn with it and sit on its faces
+      const die = (col, pip, x, z, ry, top, front) => {
+        const d = new THREE.Group(); d.position.set(x, RY + 0.15, z); d.rotation.y = ry; grp.add(d);
+        const cube = new THREE.Mesh(B(0.3, 0.3, 0.3), L(col)); cube.castShadow = !ghost; d.add(cube);
+        const P = new THREE.CylinderGeometry(0.03, 0.03, 0.012, 10);
+        top.forEach(([a, b]) => { const m = new THREE.Mesh(P, L(pip)); m.position.set(a * 0.08, 0.152, b * 0.08); d.add(m); });
+        front.forEach(([a, b]) => { const m = new THREE.Mesh(P, L(pip)); m.rotation.x = Math.PI / 2; m.position.set(a * 0.08, b * 0.08, 0.152); d.add(m); });
+      };
+      die(0xff8fb1, 0x13202a, 0.2, -0.3, 0.4, [[-1, -1], [0, 0], [1, 1]], [[-1, -1], [1, -1], [-1, 1], [1, 1]]);
+      die(0xffffff, 0xd8281e, -0.2, -0.25, -0.3, [[-1, -1], [1, 1]], [[0, 0]]);
       break;
+    }
     case 'snowman': {
       const w = L(0xf5f7fa);
       put(S(0.28), w, 0, RY + 0.26, -0.3); put(S(0.2), w, 0, RY + 0.66, -0.3); put(S(0.14), w, 0, RY + 0.96, -0.3);
@@ -3036,10 +3101,11 @@ function buildCosmetics(cos, ghost) {
   }
   if (cos.sticker) {
     const mat = cosMat('stk' + cos.sticker, () => new THREE.MeshLambertMaterial({ map: stickerTex(cos.sticker), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-    const side = new THREE.PlaneGeometry(0.8, 0.8);
-    put(side, mat, 1.056, 0.74, 0.05, 0, Math.PI / 2).castShadow = false;
-    put(side, mat, -1.056, 0.74, 0.05, 0, -Math.PI / 2).castShadow = false;
-    put(new THREE.PlaneGeometry(0.7, 0.7), mat, 0, HY + 0.004, 1.5, -Math.PI / 2, 0, Math.PI).castShadow = false;
+    const wide = cos.sticker === 'neo';   // the sponsor decal is a slim bar, the rest are square
+    const side = wide ? new THREE.PlaneGeometry(1.3, 0.49) : new THREE.PlaneGeometry(0.8, 0.8);
+    put(side, mat, 1.056, 0.74, wide ? -0.35 : 0.05, 0, Math.PI / 2).castShadow = false;
+    put(side, mat, -1.056, 0.74, wide ? -0.35 : 0.05, 0, -Math.PI / 2).castShadow = false;
+    put(wide ? new THREE.PlaneGeometry(0.95, 0.36) : new THREE.PlaneGeometry(0.7, 0.7), mat, 0, HY + 0.004, 1.55, -Math.PI / 2, 0, Math.PI).castShadow = false;
   }
   if (ghost) grp.traverse(m => { if (m.material) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.36; } });
   return grp;
@@ -3106,6 +3172,7 @@ function simStep() {
   const inp = state === 'racing' ? inputNow() : state === 'finished' ? COAST : NO_INPUT;
   stepCar(car, inp, DT, true);
   if (mp.active && (state === 'racing' || state === 'finished')) mpCollide(car);
+  if (secret.active) secretStep();
   if (state === 'racing' || state === 'finished') clock += DT;
   if (state !== 'racing') return;
   raceTime += DT;
@@ -3168,6 +3235,7 @@ function finishRace() {
   beep(784, 0.12, 0.1); setTimeout(() => beep(1175, 0.22, 0.1), 130);
   showBig('FINISH', 1100);
   if (mp.active) { lastRunFrames = rec; mpFinish(); return; }
+  if (secret.active) { lastRunFrames = rec; secretFinish(); return; }
   const runs = getRuns(raceKey), prevBest = runs.length ? runs[0].t : null;
   const entry = { t: +finishTime.toFixed(3), splits: splits.map(s => +s.toFixed(3)), ts: Date.now(), g: rec };
   lastRunFrames = rec;
@@ -3209,11 +3277,11 @@ async function initNet() {
       const m = new Map();
       snap.docs.forEach(d => { if (d.exists) m.set(d.id, d.data()); });
       net.drivers = m; net.ready = true;
-      refreshBoards();
+      refreshBoards(); renderCcu();
     }, () => { net.ready = false; refreshBoards(); });
     net.auth.onAuthStateChanged(async (u) => {
       net.uid = u ? u.uid : null; net.user = u || null;
-      if (u) await pullAccount();
+      if (u) { await pullAccount(); if (onlineName()) net.db.doc('drivers/' + u.uid).update({ seen: Date.now() }).catch(() => {}); }
       refreshBoards();
       if (state === 'title') renderTitle();
     });
@@ -3277,9 +3345,17 @@ function initRealtime(fb) {
 function renderCcu() {
   const el = $('#t-ccu');
   if (!el) return;
-  el.hidden = !(net.ccu > 0);
-  el.lastChild.textContent = ' ' + net.ccu + ' online';
+  // the realtime database counts every open game; without it, count signed-in players seen in the last 2.5 minutes
+  let n = net.rt ? net.ccu : 0;
+  if (!net.rt && net.ready) { const now = Date.now(); for (const [uid, d] of net.drivers) if (uid === net.uid || (d && typeof d.seen === 'number' && now - d.seen < 150000)) n++; if (!net.uid) n++; }
+  n = Math.max(n, 1);
+  el.hidden = !net.db;
+  el.lastChild.textContent = ' ' + n + ' online';
 }
+setInterval(() => {   // heartbeat for the online count, once a minute while signed in
+  if (net.db && net.uid && onlineName() && !document.hidden) net.db.doc('drivers/' + net.uid).update({ seen: Date.now() }).catch(() => {});
+  renderCcu();
+}, 60000);
 function refreshBoards() {
   if (!T) return;
   if (!$('#menu').hidden) renderBoard($('#m-board'), $('#m-board-sub'));
@@ -3629,7 +3705,7 @@ function mpWatchBar() {
 // bots drive the pace car's line, each a little slower and off to one side
 function mpBots(humans, on) {
   const n = on === false ? 0 : Math.max(0, MP_FIELD - humans), rng = makeRng('bots|' + mp.id), out = [];
-  const presets = Object.keys(PRESETS), cols = ['#d8324a', '#3a6ee0', '#19a79d', '#f2b632', '#8fd13f', '#ff7a1a', '#8f6bff', '#ff4fa3'];
+  const presets = Object.keys(PRESETS).filter(k => !PRESETS[k].secret), cols = ['#d8324a', '#3a6ee0', '#19a79d', '#f2b632', '#8fd13f', '#ff7a1a', '#8f6bff', '#ff4fa3'];
   const names = BOT_NAMES.slice();
   for (let i = 0; i < n && T.rival; i++) {
     const speed = rng.range(0.8, 0.97), side = (i % 2 ? 1 : -1) * rng.range(0.6, 2.2);
@@ -3847,6 +3923,126 @@ function renderMpRankings(list, sub) {
     li.append(rk, nm, tm); list.append(li);
   });
 }
+
+
+/* ---------------- secret: the Doge, and his parkour level ---------------- */
+const secret = { active: false, clicks: 0, audio: null };
+function secretSound(kind) {
+  try {
+    const ctx = secret.audio || (secret.audio = new (window.AudioContext || window.webkitAudioContext)());
+    const t = ctx.currentTime, out = ctx.createGain(); out.gain.value = 0.18; out.connect(ctx.destination);
+    const tone = (f0, f1, at, dur, type) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type || 'sine';
+      o.frequency.setValueAtTime(f0, t + at); o.frequency.exponentialRampToValueAtTime(f1, t + at + dur);
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(1, t + at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      o.connect(g); g.connect(out); o.start(t + at); o.stop(t + at + dur + 0.05);
+    };
+    if (kind === 1) tone(520, 880, 0, 0.18);                                          // boop
+    else if (kind === 2) { tone(600, 1000, 0, 0.12); tone(800, 1300, 0.13, 0.16); }    // boop boop
+    else { tone(330, 180, 0, 0.12, 'square'); tone(360, 190, 0.16, 0.14, 'square');     // woof woof
+      [523, 659, 784, 1047].forEach((f, i) => tone(f, f * 1.01, 0.4 + i * 0.1, 0.22, 'triangle')); }   // ta-da
+  } catch (e) {}
+}
+function showSecretDoge() {
+  if (store.get('ds:secretFound', false) || state !== 'title' || $('#doge-peek')) return;
+  const el = document.createElement('button');
+  el.id = 'doge-peek'; el.className = 'doge-peek'; el.setAttribute('aria-label', 'A wild Doge');
+  el.innerHTML = `<img src="${DOGE_URL}" alt="" crossorigin="anonymous"><span class="doge-say"></span>`;
+  document.body.append(el);
+  requestAnimationFrame(() => el.classList.add('in'));
+  secret.clicks = 0;
+  el.onclick = () => {
+    secret.clicks++;
+    const say = el.querySelector('.doge-say');
+    el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop');
+    secretSound(secret.clicks);
+    if (secret.clicks === 1) say.textContent = 'wow';
+    else if (secret.clicks === 2) { say.textContent = 'such click'; el.classList.add('big'); }
+    else {
+      say.textContent = 'much secret!';
+      el.classList.add('spin'); confetti();
+      store.set('ds:secretFound', true);
+      setTimeout(() => { el.remove(); openModal('secret'); }, 1300);
+    }
+  };
+}
+// the Doge peeks out when you come back from the YouTube channel
+$('.btn.yt').addEventListener('click', () => { try { sessionStorage.setItem('ds:sub', '1'); } catch (e) {} });
+const dogeCheck = () => { let v = null; try { v = sessionStorage.getItem('ds:sub'); } catch (e) {} if (v && !document.hidden) setTimeout(showSecretDoge, 600); };
+document.addEventListener('visibilitychange', dogeCheck);
+addEventListener('focus', dogeCheck);
+
+// The parkour level: a fixed route lifted high above the valley, with gaps cut into the road, launch ramps
+// before them and boost pads leading in. Fall off and you're back at the last checkpoint.
+const SKY = 32;
+function inGap(s) { if (!T.gaps) return false; for (const g of T.gaps) if (s > g.s0 && s < g.s1) return true; return false; }
+function loadSecret() {
+  if (mp.active || mp.spec) return;
+  closeModal(); closeMenu(); hideCards();
+  $('#hud').hidden = true; $('#touch').hidden = true;
+  $('#title').hidden = false; $('#t-eyebrow').textContent = 'Secret level'; $('#t-name').textContent = 'Summoning the Doge…'; $('#b-race').disabled = true;
+  state = 'loading';
+  setTimeout(() => {
+    try {
+      raceKey = 'doge-parkour';
+      buildTrackData('doge-parkour');
+      T.parkour = true; T.shortcuts = []; T.name = 'Doge Sky Run';
+      for (let i = 0; i < T.N; i++) { T.Y[i] += SKY; T.S[i] = 0; }   // all asphalt up in the sky
+      T.runs = [{ s: 0, from: 0, to: T.N - 1 }];
+      // jumps: a ramp, then a gap, spaced along the route away from the start, checkpoints and finish
+      const ramps = [], gaps = [], pads = [], rampLen = Math.ceil(10 / T.ds), gapLen = Math.ceil(13 / T.ds);
+      const clear = (a, b) => T.cps.every(c => c < a - 14 || c > b + 10);
+      const cands = [];
+      for (let i = 60; i < T.N - 60; i += 2) {
+        const a = i, b = i + rampLen + gapLen + 4;
+        let bend = 0; for (let k = a - 14; k < b + 10; k++) bend += Math.abs(wrapA(T.HEAD[k + 1] - T.HEAD[k]));
+        if (clear(a - 14, b)) cands.push([bend, a]);
+      }
+      cands.sort((p, q) => p[0] - q[0]);
+      const picks = [];
+      for (const [bend, a] of cands) { if (bend > 0.9 || picks.length >= 7) break; if (picks.every(q => Math.abs(q - a) > 45)) picks.push(a); }
+      picks.sort((p, q) => p - q);
+      for (const a of picks) {
+        const b = a + rampLen + gapLen + 4;
+        ramps.push({ i0: a, i1: a + rampLen, s0: a * T.ds, s1: (a + rampLen) * T.ds, h: 2.6 });
+        gaps.push({ i0: a + rampLen + 1, i1: a + rampLen + 1 + gapLen, s0: (a + rampLen + 1) * T.ds, s1: (a + rampLen + 1 + gapLen) * T.ds });
+        pads.push({ i0: a - 12, i1: a - 7 });
+      }
+      T.ramps = ramps; T.gaps = gaps; T.pads = pads;
+      buildWorld(); clearFx();
+      T.rival = null; T.ultra = null;
+      world.add(buildPads());
+    } catch (e) { showLoadError(e); return; }
+    secret.active = true;
+    ghostSel = [];
+    restart();
+    toast('Doge Sky Run · jump the gaps, don\'t fall!');
+  }, 30);
+}
+function buildPads() {
+  const grp = new THREE.Group(), q = quadBuilder(), a = new THREE.Color('#35e0ff'), b = new THREE.Color('#1fb5a9');
+  for (const p of T.pads) for (let k = p.i0; k < p.i1; k++) q.strip(k, -RAMP_HALF, RAMP_HALF, 0.05, k % 2 ? a : b);
+  const m = q.mesh(lambertVC({ side: THREE.DoubleSide, emissive: 0x0b4a52 })); grp.add(m);
+  return grp;
+}
+// called every physics step while racing the secret level
+function secretStep() {
+  if (!T.parkour || state !== 'racing') return;
+  for (const p of T.pads) if (car.idx >= p.i0 && car.idx < p.i1 && Math.abs(car.lat) < RAMP_HALF + 1 && car.grounded) {
+    car.boost = 3; const fx = Math.sin(car.h), fz = Math.cos(car.h), v = car.vx * fx + car.vz * fz;
+    if (v < 30) { car.vx += fx * 0.35; car.vz += fz * 0.35; }
+  }
+  if (car.y < T.Y[Math.min(car.idx, T.N - 1)] - 9) { recover(); toast('Splash! Back to the last checkpoint'); }
+}
+function secretFinish() {
+  const t = +finishTime.toFixed(3), best = store.get('ds:dogeBest', null), first = !store.get('ds:dogePaint', false);
+  if (best == null || t < best) store.set('ds:dogeBest', t);
+  store.set('ds:dogePaint', true); fillPresetSelect();
+  if (first) { awardCoins(100, 'secret level cleared'); confetti(); }
+  secret.result = { t, best: best == null ? t : Math.min(best, t), first };
+  setTimeout(() => { if (secret.active) openModal('secretdone'); }, 1100);
+}
+function secretExit() { secret.active = false; closeModal(); loadRace(todayKey); }
 
 /* ---------------- ghosts ---------------- */
 function boardEntries() {
@@ -4384,6 +4580,7 @@ function openMenu() {
 function closeMenu() { $('#menu').hidden = true; paused = false; last = performance.now(); }
 function showTitle() {
   if (mp.active || mp.spec) return;
+  if (secret.active) { secretExit(); return; }
   state = 'title'; paused = false; closeMenu(); closeModal();
   $('#hud').hidden = true; $('#touch').hidden = true; $('#finish').hidden = true;
   car = spawnCar(); orbitA = car.h + Math.PI * 0.75;
@@ -4701,10 +4898,12 @@ function openModal(kind) {
       const runs = getRuns(k);
       rows += `<li><button data-k="${k}"><span class="no">#${raceNo(k)}</span><span class="${k === raceKey ? 'cur' : ''}">${d === 0 ? 'Today · ' : ''}${prettyDate(k)}${k === raceKey ? ' · loaded' : ''}</span><span class="tm">${runs.length ? fmt(runs[0].t) : '—'}</span></button></li>`;
     }
-    c.innerHTML = `<h2>Races</h2><p class="sub">Every day has its own route. A new one unlocks at midnight.</p><h3>Coming up</h3><ul class="past">${upRows}</ul><h3>Today and past races</h3><ul class="past">${rows}</ul>`;
+    const secretRow = store.get('ds:secretFound', false) ? `<h3>Secret</h3><ul class="past"><li><button id="past-secret"><span class="no">🐕</span><span>Doge Sky Run</span><span class="tm">${store.get('ds:dogeBest', null) != null ? fmt(store.get('ds:dogeBest', null)) : '—'}</span></button></li></ul>` : '';
+    c.innerHTML = `<h2>Races</h2><p class="sub">Every day has its own route. A new one unlocks at midnight.</p>${secretRow}<h3>Coming up</h3><ul class="past">${upRows}</ul><h3>Today and past races</h3><ul class="past">${rows}</ul>`;
     const tick = () => document.querySelectorAll('[data-unlock]').forEach(el => { el.textContent = unlockIn(el.dataset.unlock); });
     clearInterval(modalTimer); modalTimer = setInterval(tick, 1000);
-    c.querySelectorAll('.past button').forEach(b => b.onclick = () => { closeModal(); loadRace(b.dataset.k); });
+    c.querySelectorAll('.past button[data-k]').forEach(b => b.onclick = () => { closeModal(); loadRace(b.dataset.k); });
+    const sb = $('#past-secret'); if (sb) sb.onclick = () => loadSecret();
   } else if (kind === 'signin') {
     const racing = pendingRace;
     c.innerHTML = `<h2>Sign in</h2>
@@ -4753,6 +4952,23 @@ function openModal(kind) {
     $('#mpq-bots').onchange = (e) => mpSetBots(e.target.checked);
     $('#mpq-start').onclick = () => mpPressStart();
     renderMpQueue();
+    $('#modal').hidden = false;
+    return;
+  } else if (kind === 'secret') {
+    c.innerHTML = `<div class="secret-hero"><img src="${DOGE_URL}" alt="" crossorigin="anonymous"></div><h2>Much secret. Very level.</h2>
+      <p class="sub">You found the Doge Sky Run: a road floating above the clouds, with gaps to jump. Boost pads charge you up before each ramp. Fall off and you go back to the last checkpoint. Beat it to unlock the secret <b>Doge</b> paint.</p>
+      <div class="row2"><button class="btn go" type="button" id="sec-go">Race it</button><button class="btn" type="button" id="sec-later">Later</button></div>`;
+    $('#sec-go').onclick = () => loadSecret();
+    $('#sec-later').onclick = () => closeModal();
+    $('#modal').hidden = false;
+    return;
+  } else if (kind === 'secretdone') {
+    const r = secret.result || {};
+    c.innerHTML = `<div class="secret-hero"><img src="${DOGE_URL}" alt="" crossorigin="anonymous"></div><h2>${r.first ? 'Such skill. Wow.' : 'Sky Run cleared'}</h2>
+      <p class="sub">${fmt(r.t)}${r.best != null && r.best < r.t ? ' · best ' + fmt(r.best) : ''}. ${r.first ? 'You unlocked the <b>Doge</b> paint (Customize → Paint → Presets) and 100 🪙.' : 'The Doge paint is in Customize → Paint → Presets.'}</p>
+      <div class="row2"><button class="btn go" type="button" id="sec-again">Race again</button><button class="btn" type="button" id="sec-back">Back to daily race</button></div>`;
+    $('#sec-again').onclick = () => { closeModal(); restart(); };
+    $('#sec-back').onclick = () => secretExit();
     $('#modal').hidden = false;
     return;
   } else if (kind === 'mpres') {
@@ -4816,6 +5032,7 @@ function openModal(kind) {
 }
 
 function loadRace(key) {
+  secret.active = false;
   if (mp.active || mp.spec) { const id = mp.id, q = mp.phase === 'queue'; mpReset(); if (q) mpLeaveLobby(id); }
   raceKey = key;
   state = 'loading';
