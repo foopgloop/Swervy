@@ -2996,24 +2996,36 @@ async function mpSyncClock() {
   const ping = s.exists && s.data().ping;
   if (ping && ping.toMillis) mp.off = ping.toMillis() - (t0 + t1) / 2;
 }
+// one shared pointer doc (lobbies/open) names the lobby everyone joins; a transaction on it means two
+// players queueing at the same moment always land in the same lobby. The countdown only starts once a
+// second live player joins, and players who stop sending heartbeats are dropped.
+const MP_MIN = 2, MP_STALE = 9000;
 async function mpFindLobby() {
-  const me = { name: onlineName(), color: settings.color };
-  const q = await net.db.collection('lobbies').where('startAt', '>', srvNow() + 2500).orderBy('startAt').limit(5).get();
-  for (const d of q.docs) {
-    try {
-      const ok = await net.db.runTransaction(async (tx) => {
-        const snap = await tx.get(d.ref), L = snap.data();
-        if (!L || !(L.startAt > srvNow() + 1500) || Object.keys(L.players || {}).length >= MP_MAX) return false;
-        tx.update(d.ref, { ['players.' + net.uid]: me });
-        return true;
-      });
-      if (ok) return d.id;
-    } catch (e) {}
-  }
-  const day = new Date(2020, 0, 1 + Math.floor(Math.random() * 2190));
-  const ref = net.db.collection('lobbies').doc();
-  await ref.set({ startAt: Math.round(srvNow() + MP_WAIT), key: dateKey(day), host: net.uid, players: { [net.uid]: me } });
-  return ref.id;
+  const me = { name: onlineName(), color: settings.color, seen: Math.round(srvNow()) };
+  const openRef = net.db.doc('lobbies/open');
+  return net.db.runTransaction(async (tx) => {
+    const now = srvNow();
+    const open = await tx.get(openRef);
+    const id = open.exists && open.data().id;
+    if (id) {
+      const ref = net.db.doc('lobbies/' + id), snap = await tx.get(ref), L = snap.exists ? snap.data() : null;
+      if (L && (L.startAt == null || L.startAt > now + 2000)) {
+        const live = Object.entries(L.players || {}).filter(([uid, p]) => uid !== net.uid && p && now - (p.seen || 0) < MP_STALE);
+        if (live.length < MP_MAX) {
+          const upd = { ['players.' + net.uid]: me };
+          Object.keys(L.players || {}).forEach(uid => { if (uid !== net.uid && !live.some(([u]) => u === uid)) upd['players.' + uid] = firebase.firestore.FieldValue.delete(); });
+          if (L.startAt == null && live.length + 1 >= MP_MIN) upd.startAt = Math.round(now + MP_WAIT);
+          tx.update(ref, upd);
+          return id;
+        }
+      }
+    }
+    const ref = net.db.collection('lobbies').doc();
+    const day = new Date(2020, 0, 1 + Math.floor(Math.random() * 2190));
+    tx.set(ref, { startAt: null, key: dateKey(day), host: net.uid, players: { [net.uid]: me } });
+    tx.set(openRef, { id: ref.id });
+    return ref.id;
+  });
 }
 async function mpQueue() {
   if (!net.db) { toast('Multiplayer needs the online leaderboard'); return; }
@@ -3030,9 +3042,17 @@ async function mpQueue() {
     mp.id = id;
     mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => { if (s.exists) { mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue(); } }));
     clearInterval(mp.timer);
+    let beat = 0;
     mp.timer = setInterval(() => {
       if (modalKind === 'mp') renderMpQueue();
-      if (mp.lobby && srvNow() >= mp.lobby.startAt) { clearInterval(mp.timer); mpStart(); }
+      const L = mp.lobby;
+      if (L && L.startAt != null && srvNow() >= L.startAt) { clearInterval(mp.timer); mpStart(); return; }
+      if ((beat += 250) >= 3000) {   // heartbeat so a closed tab doesn't hold a spot; also starts the clock if a second player is waiting
+        beat = 0;
+        const upd = { ['players.' + net.uid + '.seen']: Math.round(srvNow()) };
+        if (L && L.startAt == null && Object.values(L.players || {}).filter(p => p && srvNow() - (p.seen || 0) < MP_STALE).length >= MP_MIN) upd.startAt = Math.round(srvNow() + MP_WAIT);
+        net.db.doc('lobbies/' + id).update(upd).catch(() => {});
+      }
     }, 250);
   } catch (e) {
     console.error(e);
@@ -3059,12 +3079,15 @@ function mpReset() {
 }
 function renderMpQueue() {
   const c = $('#modal-content');
-  const left = mp.lobby ? Math.max(0, Math.ceil((mp.lobby.startAt - srvNow()) / 1000)) : null;
-  const players = mp.lobby ? Object.entries(mp.lobby.players || {}) : [];
+  const waiting = !mp.lobby || mp.lobby.startAt == null;
+  const left = waiting ? null : Math.max(0, Math.ceil((mp.lobby.startAt - srvNow()) / 1000));
+  const players = mp.lobby ? Object.entries(mp.lobby.players || {}).filter(([uid, p]) => uid === net.uid || (p && srvNow() - (p.seen || 0) < MP_STALE)) : [];
   const bots = Math.max(0, MP_FIELD - players.length);
   c.querySelector('#mpq-time').textContent = left == null ? '…' : String(left);
+  c.querySelector('#mpq-unit').textContent = left == null ? 'waiting for players' : 'seconds to start';
   c.querySelector('#mpq-note').textContent = !mp.lobby ? 'Finding a lobby…'
-    : `${players.length} ${players.length === 1 ? 'racer' : 'racers'} in the lobby${bots ? ` · ${bots} ${bots === 1 ? 'bot' : 'bots'} will fill the grid` : ''}`;
+    : waiting ? `Waiting for another player to join. The race starts 10 seconds after a second racer arrives.`
+    : `${players.length} racers in the lobby${bots ? ` · ${bots} ${bots === 1 ? 'bot' : 'bots'} will fill the grid` : ''}`;
   const list = c.querySelector('#mpq-list');
   list.textContent = '';
   players.forEach(([uid, p]) => {
@@ -3105,7 +3128,7 @@ async function mpStart() {
   if (mp.phase !== 'queue' || !mp.lobby) return;
   mp.phase = 'loading'; mp.active = true;
   const L = mp.lobby, goAt = mp.goAt = L.startAt + MP_LOAD;
-  mp.players = Object.entries(L.players || {}).map(([uid, p]) => ({ uid, name: cleanName(p && p.name) || 'Driver', color: cleanColor(p && p.color) }));
+  mp.players = Object.entries(L.players || {}).filter(([uid, p]) => uid === net.uid || (p && L.startAt - (p.seen || 0) < MP_STALE)).map(([uid, p]) => ({ uid, name: cleanName(p && p.name) || 'Driver', color: cleanColor(p && p.color) }));
   closeModal(); closeMenu(); hideCards();
   $('#title').hidden = false; $('#t-eyebrow').textContent = 'Multiplayer · ' + mp.players.length + (mp.players.length === 1 ? ' racer' : ' racers');
   $('#t-name').textContent = 'Building the road…'; $('#b-race').disabled = true;
@@ -4116,8 +4139,8 @@ function openModal(kind) {
     return;
   } else if (kind === 'mp') {
     c.innerHTML = `<h2>Multiplayer</h2>
-      <p class="sub">Race everyone who queues in the next few seconds on a random route. Bots fill the grid if there aren't enough players. Only 1st place scores: +1 point.</p>
-      <div class="mpq-clock"><b id="mpq-time">…</b><span>seconds to start</span></div>
+      <p class="sub">Race other players on a random route. The countdown starts once a second player joins, and bots fill any empty spots on the grid. Only 1st place scores: +1 point.</p>
+      <div class="mpq-clock"><b id="mpq-time">…</b><span id="mpq-unit">waiting for players</span></div>
       <p class="note" id="mpq-note"></p>
       <ol class="board" id="mpq-list"></ol>
       <button class="btn" type="button" id="mpq-cancel" style="margin-top:12px;width:100%">Leave queue</button>`;
