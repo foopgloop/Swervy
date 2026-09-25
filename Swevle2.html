@@ -213,6 +213,13 @@ body.touch #flip .k-touch{display:inline}
 .board li{display:grid;grid-template-columns:26px 1fr auto auto;gap:12px;align-items:center;padding:10px 2px;border-bottom:1px solid var(--line)}
 .board .rk{font:700 12px/1 var(--mono);color:var(--muted)}
 .board .nm{font:700 14px/1.25 var(--ui);display:flex;align-items:center;gap:8px;min-width:0}
+.board .car-ic{flex:none;width:88px;height:55px;margin:-10px 0;filter:drop-shadow(0 2px 2px rgba(19,32,42,.18))}
+.board .pts{font:800 11px/1 var(--mono);color:var(--teal);white-space:nowrap}
+.board.rank li{grid-template-columns:26px 1fr auto}
+.board.rank .tm{text-align:right}
+.board.rank .tm small{display:block;margin-top:3px;font:700 9px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.board li.top1 .rk{color:var(--gold);font-weight:800} .board li.top2 .rk{color:#8f9aa1;font-weight:800} .board li.top3 .rk{color:var(--bronze);font-weight:800}
+.mb-tabs{margin:2px 0 10px}
 .board .nm small{font:600 11px var(--ui);color:var(--muted)}
 .board .tm{font:700 15px/1 var(--mono);font-variant-numeric:tabular-nums}
 .board li.me .nm{color:var(--go-dark)}
@@ -2580,6 +2587,48 @@ function makeCarMesh(color, ghost, tex) {
   root.userData = { tilt, pivots, wheels, paint, paintMat, paintMesh, head, tail, mats };
   return root;
 }
+// leaderboard thumbnails: the real car model with each driver's paint, rendered once per paint job
+const carIconCache = new Map();
+let iconRig = null;
+function carIconTex(s) {
+  if (s.id === 'rival') return paintTextureFor(null, '#35d0c0');
+  if (s.id === 'ultra') return paintTextureFor(null, '#c084fc');
+  if (s.me && myPaintTex) return myPaintTex;
+  const d = s.uid ? net.drivers.get(s.uid) : null;
+  return paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, s.color || cleanColor(d && d.color));
+}
+function carIcon(s) {
+  let tex;
+  try { tex = carIconTex(s); } catch (e) { return null; }
+  if (!tex) return null;
+  const key = tex.uuid + ':' + tex.version;
+  if (carIconCache.has(key)) return carIconCache.get(key);
+  try {
+    if (!iconRig) {
+      const r = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+      r.setPixelRatio(1); r.setSize(352, 220, false); r.setClearColor(0x000000, 0);
+      if ('outputEncoding' in r) r.outputEncoding = renderer.outputEncoding;
+      const sc = new THREE.Scene();
+      sc.add(new THREE.HemisphereLight(0xfdfbf0, 0x6b6f5c, 0.85));
+      const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(6, 10, 8); sc.add(sun);
+      const rim = new THREE.DirectionalLight(0xcfe6ff, 0.35); rim.position.set(-8, 4, -6); sc.add(rim);
+      const shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 32), new THREE.MeshBasicMaterial({ color: 0x0b1419, transparent: true, opacity: 0.28, depthWrite: false }));
+      shadow.rotation.x = -Math.PI / 2; shadow.scale.set(1.5, 2.6, 1); shadow.position.y = 0.01; sc.add(shadow);
+      const mesh = makeCarMesh(0xffffff, false, tex); sc.add(mesh);
+      const cam = new THREE.PerspectiveCamera(17, 352 / 220, 0.1, 100);
+      cam.position.set(7.6, 4.6, 9.4); cam.lookAt(0, 0.95, 0);
+      iconRig = { r, sc, cam, mesh };
+    }
+    const u = iconRig.mesh.userData;
+    u.paintMat.map = tex; u.paintMat.color.setHex(0xffffff); u.paintMat.needsUpdate = true;
+    u.paint.color.setHex(tex.pillar != null ? tex.pillar : 0xf2b632);
+    iconRig.r.render(iconRig.sc, iconRig.cam);
+    const url = iconRig.r.domElement.toDataURL('image/png');
+    if (carIconCache.size > 200) carIconCache.clear();
+    carIconCache.set(key, url);
+    return url;
+  } catch (e) { console.error('Daily Swerve: car icon failed', e); carIconCache.set(key, null); return null; }
+}
 function labelSprite(text, color) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 56;
   const g = cv.getContext('2d');
@@ -2773,7 +2822,7 @@ function authMessage(e) {
 function refreshBoards() {
   if (!T) return;
   if (!$('#menu').hidden) renderBoard($('#m-board'), $('#m-board-sub'));
-  if (modalKind === 'board') renderBoard($('#mb-list'), $('#mb-sub'));
+  if (modalKind === 'board') renderModalBoard();
   if (state === 'title') renderTitle();
 }
 function netError(e) {
@@ -2847,6 +2896,36 @@ function onlineRows() {
   return out.sort((a, b) => a.t - b.t);
 }
 
+// points: each daily race's finishing order among signed-in drivers pays out F1-style; any other finish scores 1
+const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+const pointsFor = (place) => RACE_POINTS[place - 1] || 1;
+function standings() {
+  const days = {};
+  for (const [uid, d] of net.drivers) {
+    const best = d && d.best;
+    if (!best || typeof best !== 'object') continue;
+    for (const k in best) {
+      const b = best[k];
+      if (!b || typeof b.t !== 'number' || !(b.t > 5)) continue;
+      (days[k] || (days[k] = [])).push({ uid, t: b.t });
+    }
+  }
+  const tot = new Map();
+  for (const k in days) {
+    days[k].sort((a, b) => a.t - b.t).forEach((r, i) => {
+      const o = tot.get(r.uid) || { uid: r.uid, pts: 0, wins: 0, podiums: 0, races: 0 };
+      o.pts += pointsFor(i + 1); o.races++;
+      if (i === 0) o.wins++;
+      if (i < 3) o.podiums++;
+      tot.set(r.uid, o);
+    });
+  }
+  return [...tot.values()].map(o => {
+    const d = net.drivers.get(o.uid);
+    return Object.assign(o, { name: cleanName(d && d.name) || 'Driver', color: cleanColor(d && d.color), me: o.uid === net.uid });
+  }).sort((a, b) => b.pts - a.pts || b.wins - a.wins || b.podiums - a.podiums || a.name.localeCompare(b.name));
+}
+
 /* ---------------- ghosts ---------------- */
 function boardEntries() {
   const out = [];
@@ -2854,9 +2933,9 @@ function boardEntries() {
   if (T.ultra) out.push({ id: 'ultra', name: 'Ultra pace', sub: 'fastest line anywhere', t: T.ultra.t, has: true });
   if (T.rival) out.push({ id: 'rival', name: 'Pace car', sub: 'autopilot', t: T.rival.t, has: true });
   if (net.ready && onlineName()) {
-    onlineRows().forEach(r => out.push({ id: r.me ? (runs[0] && runs[0].g ? 'me' : 'drv:' + r.uid) : 'drv:' + r.uid, uid: r.uid, name: r.name, sub: r.me ? 'you' : '', t: r.t, me: r.me, has: true, color: r.color }));
+    onlineRows().forEach((r, i) => out.push({ id: r.me ? (runs[0] && runs[0].g ? 'me' : 'drv:' + r.uid) : 'drv:' + r.uid, uid: r.uid, name: r.name, sub: r.me ? 'you' : '', pts: pointsFor(i + 1), t: r.t, me: r.me, has: true, color: r.color }));
   } else {
-    if (net.ready) onlineRows().forEach(r => out.push({ id: 'drv:' + r.uid, uid: r.uid, name: r.name, sub: '', t: r.t, has: true, color: r.color }));
+    if (net.ready) onlineRows().forEach((r, i) => out.push({ id: 'drv:' + r.uid, uid: r.uid, name: r.name, sub: '', pts: pointsFor(i + 1), t: r.t, has: true, color: r.color }));
     runs.forEach((r, i) => out.push({ id: i === 0 ? 'me' : 'run:' + r.ts, name: (myName() || 'You') + (i === 0 ? ' · best' : ''), sub: new Date(r.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · this device', t: r.t, me: true, has: !!r.g }));
   }
   return out.sort((a, b) => a.t - b.t);
@@ -3435,9 +3514,12 @@ function renderBoard(list, sub) {
     const medal = s.id !== 'rival' && s.id !== 'ultra' ? medalFor(s.t) : null;
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
     const nm = document.createElement('span'); nm.className = 'nm';
+    const icon = carIcon(s);
+    if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
     if (medal) { const m = document.createElement('i'); m.className = 'medal ' + medal.cls; nm.append(m); }
     nm.append(document.createTextNode(s.name));
     if (s.sub) { const sm = document.createElement('small'); sm.textContent = s.sub; nm.append(sm); }
+    if (s.pts) { const pt = document.createElement('span'); pt.className = 'pts'; pt.textContent = '+' + s.pts; pt.title = s.pts + ' points for this race'; nm.append(pt); }
     const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = fmt(s.t);
     const btn = document.createElement('button');
     btn.className = 'gbtn';
@@ -3464,6 +3546,36 @@ function renderBoard(list, sub) {
   });
 }
 
+function renderRankings(list, sub) {
+  const rows = net.ready ? standings() : [];
+  if (sub) {
+    sub.textContent = '';
+    const live = document.createElement('span'); live.className = 'live'; live.textContent = 'Live';
+    if (net.ready) sub.append(live, document.createTextNode(' '));
+    sub.append(document.createTextNode(net.ready
+      ? 'Every daily race pays points by finishing place: 25, 18, 15, 12, 10, 8, 6, 4, 2, 1, then 1 point for any other finish.'
+      : 'Rankings need the online leaderboard.'));
+  }
+  list.textContent = '';
+  if (!rows.length) { const li = document.createElement('li'); li.innerHTML = '<span></span><span class="nm">No ranked drivers yet. Sign in and finish a race to score points.</span>'; list.append(li); return; }
+  rows.slice(0, 100).forEach((r, i) => {
+    const li = document.createElement('li');
+    li.className = (r.me ? 'me ' : '') + (i < 3 ? 'top' + (i + 1) : '');
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
+    const nm = document.createElement('span'); nm.className = 'nm';
+    const icon = carIcon({ id: 'drv:' + r.uid, uid: r.uid, me: r.me, color: r.color });
+    if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
+    const who = document.createElement('span'); who.textContent = r.name;
+    const sm = document.createElement('small');
+    sm.textContent = [r.wins ? r.wins + (r.wins === 1 ? ' win' : ' wins') : '', r.podiums ? r.podiums + (r.podiums === 1 ? ' podium' : ' podiums') : '', r.races + (r.races === 1 ? ' race' : ' races')].filter(Boolean).join(' · ');
+    const col = document.createElement('span'); col.style.cssText = 'display:flex;flex-direction:column;gap:3px;min-width:0'; col.append(who, sm);
+    nm.append(col);
+    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = String(r.pts);
+    const u = document.createElement('small'); u.textContent = 'pts'; tm.append(u);
+    li.append(rk, nm, tm);
+    list.append(li);
+  });
+}
 function renderBoardNote(entry, posting) {
   const el = $('#f-board-note');
   el.textContent = '';
@@ -3483,7 +3595,8 @@ function renderBoardNote(entry, posting) {
     const total = rows.length + (mine ? 0 : 1);
     el.textContent = '';
     const b = document.createElement('b'); b.textContent = `#${place} of ${total}`;
-    el.append(document.createTextNode(posted ? 'Posted. You are ' : `Your best (${fmt(myT)}) stands. You are `), b, document.createTextNode(` on today's board.`));
+    const pb = document.createElement('b'); pb.textContent = `+${pointsFor(place)} pts`;
+    el.append(document.createTextNode(posted ? 'Posted. You are ' : `Your best (${fmt(myT)}) stands. You are `), b, document.createTextNode(` on today's board, worth `), pb, document.createTextNode('.'));
   });
 }
 function confetti() {
@@ -3543,6 +3656,8 @@ function toast(msg) {
 }
 
 /* modal */
+let boardTab = 'today';
+function renderModalBoard() { if (boardTab === 'rank') renderRankings($('#mb-list'), $('#mb-sub')); else renderBoard($('#mb-list'), $('#mb-sub')); }
 let modalKind = null, pendingRace = false, askedName = false;
 function closeModal() { $('#modal').hidden = true; modalKind = null; clearInterval(modalTimer); }
 let modalTimer = 0;
@@ -3723,8 +3838,11 @@ function openModal(kind) {
     setTimeout(() => input.focus(), 0);
     return;
   } else if (kind === 'board') {
-    c.innerHTML = `<h2>Leaderboard</h2><p class="sub" id="mb-sub"></p><ol class="board" id="mb-list"></ol>`;
-    renderBoard($('#mb-list'), $('#mb-sub'));
+    c.innerHTML = `<h2>Leaderboard</h2>
+      <div class="seg mb-tabs" id="mb-tabs"><button data-v="today" aria-pressed="${boardTab === 'today'}">Today</button><button data-v="rank" aria-pressed="${boardTab === 'rank'}">Rankings</button></div>
+      <p class="sub" id="mb-sub"></p><ol class="board${boardTab === 'rank' ? ' rank' : ''}" id="mb-list"></ol>`;
+    c.querySelectorAll('#mb-tabs button').forEach(b => b.onclick = () => { boardTab = b.dataset.v; openModal('board'); });
+    renderModalBoard();
   }
   $('#modal').hidden = false;
   setTimeout(() => $('#modal-close').focus(), 0);
