@@ -220,6 +220,9 @@ body.touch #flip .k-touch{display:inline}
 .board.rank .tm small{display:block;margin-top:3px;font:700 9px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .board li.top1 .rk{color:var(--gold);font-weight:800} .board li.top2 .rk{color:#8f9aa1;font-weight:800} .board li.top3 .rk{color:var(--bronze);font-weight:800}
 .mb-tabs{margin:2px 0 10px}
+.mpq-clock{display:flex;align-items:baseline;gap:10px;margin:4px 0 6px}
+.mpq-clock b{font:400 64px/1 var(--display);color:var(--go)}
+.mpq-clock span{font:800 11px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .board .nm small{font:600 11px var(--ui);color:var(--muted)}
 .board .tm{font:700 15px/1 var(--mono);font-variant-numeric:tabular-nums}
 .board li.me .nm{color:var(--go-dark)}
@@ -341,7 +344,7 @@ body.touch .key-legend{display:none}
   <button class="driver" id="t-driver" data-open="account"><b id="t-driver-name">Set a driver name</b><span id="t-driver-act">Sign up</span></button>
   <button id="b-race" class="btn go" disabled>Race now</button>
   <div class="row2"><button class="btn" data-open="vehicle">Edit vehicle</button><button class="btn" data-open="past">Races</button></div>
-  <button class="btn dark" data-open="board">Leaderboard</button>
+  <div class="row2"><button class="btn dark" id="b-mp">Multiplayer</button><button class="btn dark" data-open="board">Leaderboard</button></div>
   <a class="btn yt" href="https://youtube.com/@NeoDogez" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#ff0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/><path fill="#fff" d="M9.6 15.6 15.8 12 9.6 8.4z"/></svg>Subscribe to NeoDogez</a>
   <div class="keys key-legend" aria-label="Controls">
     <div class="key"><span><kbd>W</kbd><kbd>↑</kbd></span>Throttle</div>
@@ -2352,7 +2355,7 @@ function setGrid(on) {
 }
 
 function openGarage() {
-  if (!T || !carMesh || state === 'loading') return;
+  if (!T || !carMesh || state === 'loading' || mp.active) return;
   closeModal(); closeMenu(); hideCards();
   $('#hud').hidden = true; $('#touch').hidden = true;
   car = spawnCar(); state = 'garage';
@@ -2591,6 +2594,7 @@ function makeCarMesh(color, ghost, tex) {
 const carIconCache = new Map();
 let iconRig = null;
 function carIconTex(s) {
+  if (s.tex) return s.tex;
   if (s.id === 'rival') return paintTextureFor(null, '#35d0c0');
   if (s.id === 'ultra') return paintTextureFor(null, '#c084fc');
   if (s.me && myPaintTex) return myPaintTex;
@@ -2708,6 +2712,7 @@ function passCheckpoint() {
 
 function restart() {
   if (!T) return;
+  if (mp.active && !mp.starting) return;
   if (replay) { replay = null; $('#replay').hidden = true; }
   hideCards(); closeMenu(); closeModal();
   $('#hud').hidden = false;
@@ -2721,7 +2726,7 @@ function restart() {
   camH = car.h; camInit = false; clearFx();
   setupGhosts(); updateCpHud();
   const toBeat = boardEntries().filter(e => ghostSel.includes(e.id)).sort((a, b) => a.t - b.t)[0];
-  $('#rival').hidden = !toBeat;
+  $('#rival').hidden = !toBeat || mp.active;
   if (toBeat) $('#rival-t').textContent = fmt(toBeat.t) + ' · ' + toBeat.name;
   ensureAudio();
 }
@@ -2736,6 +2741,7 @@ function finishRace() {
   orbitA = car.h + Math.PI;
   beep(784, 0.12, 0.1); setTimeout(() => beep(1175, 0.22, 0.1), 130);
   showBig('FINISH', 1100);
+  if (mp.active) { lastRunFrames = rec; mpFinish(); return; }
   const runs = getRuns(raceKey), prevBest = runs.length ? runs[0].t : null;
   const entry = { t: +finishTime.toFixed(3), splits: splits.map(s => +s.toFixed(3)), ts: Date.now(), g: rec };
   lastRunFrames = rec;
@@ -2861,7 +2867,7 @@ async function postTime(key, entry) {
       const best = Object.assign({}, cur.best || {});
       best[key] = { t: entry.t, splits: entry.splits, ts: entry.ts };
       Object.keys(best).sort().slice(0, -40).forEach(k => delete best[k]);
-      await ref.set({ name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT) });
+      await ref.set({ name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT), ...(cur.mp ? { mp: cur.mp } : {}) });
       if (entry.g && entry.g.length) {
         const gref = net.db.doc('ghosts/' + net.uid), gs = await gref.get();
         const days = Object.assign({}, gs.exists && gs.data().days || {});
@@ -2926,6 +2932,260 @@ function standings() {
   }).sort((a, b) => b.pts - a.pts || b.wins - a.wins || b.podiums - a.podiums || a.name.localeCompare(b.name));
 }
 
+
+/* ---------------- multiplayer queue races ---------------- */
+// lobbies/<id>:            { startAt (server ms), key (route), host, players: { uid: { name, color } } }
+// lobbies/<id>/cars/<uid>: { hz, f: [x,y,z,h,pitch,roll, ...], done: finish time or null }
+// drivers/<uid>.mp:        { wins, races }   only 1st place scores a point
+const MP_WAIT = 10000, MP_LOAD = 9000, MP_MAX = 8, MP_FIELD = 6, MP_DELAY = 1.2;
+const BOT_NAMES = ['Rusty', 'Nitro Nan', 'Skid Kid', 'Gravel Gus', 'Turbo Tia', 'Drift Dot', 'Mudflap', 'Axle Rose', 'Sprocket', 'Burnout Bo'];
+const mp = { active: false, phase: 'idle', id: null, lobby: null, off: 0, unsub: [], bots: [], cars: new Map(), ghosts: new Map(), pubT: null, timer: null, result: null };
+const srvNow = () => Date.now() + mp.off;
+const mpWins = (d) => (d && d.mp && typeof d.mp.wins === 'number' ? d.mp.wins : 0);
+const mpRaces = (d) => (d && d.mp && typeof d.mp.races === 'number' ? d.mp.races : 0);
+
+async function mpSyncClock() {
+  const ref = net.db.doc('drivers/' + net.uid);
+  const t0 = Date.now();
+  await ref.set({ ping: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  const t1 = Date.now();
+  const s = await ref.get({ source: 'server' });
+  const ping = s.exists && s.data().ping;
+  if (ping && ping.toMillis) mp.off = ping.toMillis() - (t0 + t1) / 2;
+}
+async function mpFindLobby() {
+  const me = { name: onlineName(), color: settings.color };
+  const q = await net.db.collection('lobbies').where('startAt', '>', srvNow() + 2500).orderBy('startAt').limit(5).get();
+  for (const d of q.docs) {
+    try {
+      const ok = await net.db.runTransaction(async (tx) => {
+        const snap = await tx.get(d.ref), L = snap.data();
+        if (!L || !(L.startAt > srvNow() + 1500) || Object.keys(L.players || {}).length >= MP_MAX) return false;
+        tx.update(d.ref, { ['players.' + net.uid]: me });
+        return true;
+      });
+      if (ok) return d.id;
+    } catch (e) {}
+  }
+  const day = new Date(2020, 0, 1 + Math.floor(Math.random() * 2190));
+  const ref = net.db.collection('lobbies').doc();
+  await ref.set({ startAt: Math.round(srvNow() + MP_WAIT), key: dateKey(day), host: net.uid, players: { [net.uid]: me } });
+  return ref.id;
+}
+async function mpQueue() {
+  if (!net.db) { toast('Multiplayer needs the online leaderboard'); return; }
+  if (!net.uid) { openModal('signin'); return; }
+  if (!onlineName()) { openModal('account'); return; }
+  if (mp.phase !== 'idle') return;
+  mp.phase = 'queue'; mp.id = null; mp.lobby = null;
+  openModal('mp');
+  try {
+    await mpSyncClock();
+    if (mp.phase !== 'queue') return;
+    const id = await mpFindLobby();
+    if (mp.phase !== 'queue') { mpLeaveLobby(id); return; }
+    mp.id = id;
+    mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => { if (s.exists) { mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue(); } }));
+    clearInterval(mp.timer);
+    mp.timer = setInterval(() => {
+      if (modalKind === 'mp') renderMpQueue();
+      if (mp.lobby && srvNow() >= mp.lobby.startAt) { clearInterval(mp.timer); mpStart(); }
+    }, 250);
+  } catch (e) {
+    console.error(e);
+    mpReset();
+    closeModal();
+    toast(e && e.code === 'permission-denied' ? 'Multiplayer is not allowed by the database rules yet' : 'Could not join a race. Try again.');
+  }
+}
+function mpLeaveLobby(id) {
+  if (!id || !net.db) return;
+  net.db.doc('lobbies/' + id).update({ ['players.' + net.uid]: firebase.firestore.FieldValue.delete() }).catch(() => {});
+}
+function mpCancel() {
+  if (mp.phase !== 'queue') return;
+  const id = mp.id;
+  mpReset();
+  mpLeaveLobby(id);
+  toast('Left the queue');
+}
+function mpReset() {
+  mp.unsub.forEach(u => { try { u(); } catch (e) {} });
+  mp.unsub = []; clearInterval(mp.timer); clearInterval(mp.pubT);
+  mp.active = false; mp.goAt = 0; mp.phase = 'idle'; mp.id = null; mp.lobby = null; mp.bots = []; mp.cars = new Map(); mp.ghosts = new Map(); mp.result = null;
+}
+function renderMpQueue() {
+  const c = $('#modal-content');
+  const left = mp.lobby ? Math.max(0, Math.ceil((mp.lobby.startAt - srvNow()) / 1000)) : null;
+  const players = mp.lobby ? Object.entries(mp.lobby.players || {}) : [];
+  const bots = Math.max(0, MP_FIELD - players.length);
+  c.querySelector('#mpq-time').textContent = left == null ? '…' : String(left);
+  c.querySelector('#mpq-note').textContent = !mp.lobby ? 'Finding a lobby…'
+    : `${players.length} ${players.length === 1 ? 'racer' : 'racers'} in the lobby${bots ? ` · ${bots} ${bots === 1 ? 'bot' : 'bots'} will fill the grid` : ''}`;
+  const list = c.querySelector('#mpq-list');
+  list.textContent = '';
+  players.forEach(([uid, p]) => {
+    const li = document.createElement('li'); if (uid === net.uid) li.className = 'me';
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = '●';
+    const nm = document.createElement('span'); nm.className = 'nm';
+    const icon = carIcon({ id: 'drv:' + uid, uid, me: uid === net.uid, color: cleanColor(p && p.color) });
+    if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
+    nm.append(document.createTextNode(cleanName(p && p.name) || 'Driver'));
+    if (uid === net.uid) { const sm = document.createElement('small'); sm.textContent = 'you'; nm.append(sm); }
+    const d = net.drivers.get(uid);
+    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = mpWins(d) + '🏆';
+    li.append(rk, nm, tm); list.append(li);
+  });
+}
+
+// bots drive the pace car's line, each a little slower and off to one side
+function mpBots(humans) {
+  const n = Math.max(0, MP_FIELD - humans), rng = makeRng('bots|' + mp.id), out = [];
+  const presets = Object.keys(PRESETS), cols = ['#d8324a', '#3a6ee0', '#19a79d', '#f2b632', '#8fd13f', '#ff7a1a', '#8f6bff', '#ff4fa3'];
+  const names = BOT_NAMES.slice();
+  for (let i = 0; i < n && T.rival; i++) {
+    const speed = rng.range(0.8, 0.97), side = (i % 2 ? 1 : -1) * rng.range(0.6, 2.2);
+    const src = T.rival.frames, f = new Array(src.length);
+    for (let k = 0; k + 5 < src.length; k += 6) {
+      const h = src[k + 3];
+      f[k] = src[k] + Math.cos(h) * side; f[k + 1] = src[k + 1]; f[k + 2] = src[k + 2] - Math.sin(h) * side;
+      f[k + 3] = h; f[k + 4] = src[k + 4]; f[k + 5] = src[k + 5];
+    }
+    const col = cols[rng.int(0, cols.length - 1)], px = new Uint32Array(PW * PH);
+    applyPreset(presets[rng.int(0, presets.length - 1)], px, parseInt(col.slice(1), 16));
+    const name = names.splice(rng.int(0, names.length - 1), 1)[0];
+    out.push({ id: 'bot' + i, name, color: col, f, hz: 30 * speed, t: T.rival.t / speed, tex: paintTextureFor(encodePaint(px), col) });
+  }
+  return out;
+}
+async function mpStart() {
+  if (mp.phase !== 'queue' || !mp.lobby) return;
+  mp.phase = 'loading'; mp.active = true;
+  const L = mp.lobby, goAt = mp.goAt = L.startAt + MP_LOAD;
+  mp.players = Object.entries(L.players || {}).map(([uid, p]) => ({ uid, name: cleanName(p && p.name) || 'Driver', color: cleanColor(p && p.color) }));
+  closeModal(); closeMenu(); hideCards();
+  $('#title').hidden = false; $('#t-eyebrow').textContent = 'Multiplayer · ' + mp.players.length + (mp.players.length === 1 ? ' racer' : ' racers');
+  $('#t-name').textContent = 'Building the road…'; $('#b-race').disabled = true;
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    raceKey = L.key;
+    buildTrackData(L.key); buildWorld(); clearFx();
+    T.rival = simulateRival(); T.ultra = null;
+  } catch (e) { console.error(e); mpReset(); toast('Could not build the multiplayer route'); loadRace(todayKey); return; }
+  mp.bots = mpBots(mp.players.length);
+  mp.unsub.push(net.db.collection('lobbies/' + mp.id + '/cars').onSnapshot((snap) => {
+    snap.docs.forEach(d => {
+      if (d.id === net.uid) return;
+      const v = d.data();
+      if (!v || !Array.isArray(v.f)) return;
+      mp.cars.set(d.id, { f: v.f, hz: v.hz === 30 ? 30 : 10, done: typeof v.done === 'number' ? v.done : null });
+      const g = mp.ghosts.get(d.id); if (g) { g.frames = v.f; g.hz = v.hz === 30 ? 30 : 10; }
+    });
+    if (modalKind === 'mpres') renderMpResults();
+  }));
+  $('#t-name').textContent = T.name;
+  const wait = () => {
+    if (!mp.active) return;
+    if (srvNow() >= goAt - 2400) { mp.phase = 'race'; mp.starting = true; restart(); mp.starting = false; mpPublishLoop(); return; }
+    $('#t-eyebrow').textContent = 'Multiplayer · starting in ' + Math.ceil((goAt - 2400 - srvNow()) / 1000);
+    setTimeout(wait, 200);
+  };
+  wait();
+}
+function mpPack() {
+  const f = [];
+  for (let i = 0; i + 5 < rec.length; i += 18) for (let k = 0; k < 6; k++) f.push(rec[i + k]);
+  return f;
+}
+function mpPublishLoop() {
+  clearInterval(mp.pubT);
+  const ref = net.db.doc('lobbies/' + mp.id + '/cars/' + net.uid);
+  mp.pubT = setInterval(() => {
+    if (!mp.active || state !== 'racing') return;
+    ref.set({ hz: 10, f: mpPack(), done: null, name: onlineName() }).catch(() => {});
+  }, 1000);
+}
+function mpGhostList() {
+  const out = mp.bots.map(b => ({ key: b.id, f: b.f, hz: b.hz, color: b.color, label: b.name.toUpperCase(), tex: b.tex }));
+  mp.players.forEach(p => {
+    if (p.uid === net.uid) return;
+    const d = net.drivers.get(p.uid), c = mp.cars.get(p.uid);
+    out.push({ key: p.uid, f: c ? c.f : [], hz: c ? c.hz : 10, color: p.color, label: p.name.toUpperCase(), tex: paintTextureFor(d && typeof d.paint === 'string' ? d.paint : null, p.color), live: true });
+  });
+  return out;
+}
+function mpStandings() {
+  const rows = mp.bots.map(b => ({ name: b.name, t: b.t, bot: true, icon: { id: b.id, tex: b.tex } }));
+  mp.players.forEach(p => {
+    const me = p.uid === net.uid, c = mp.cars.get(p.uid);
+    rows.push({ name: p.name, uid: p.uid, me, t: me ? finishTime : c ? c.done : null, icon: { id: 'drv:' + p.uid, uid: p.uid, me, color: p.color } });
+  });
+  return rows.sort((a, b) => (a.t == null) - (b.t == null) || a.t - b.t);
+}
+function mpFinish() {
+  clearInterval(mp.pubT);
+  mp.phase = 'done';
+  const t = +finishTime.toFixed(3);
+  net.db.doc('lobbies/' + mp.id + '/cars/' + net.uid).set({ hz: 10, f: mpPack(), done: t, name: onlineName() }).catch(() => {});
+  const ahead = mp.bots.filter(b => b.t < t).length + [...mp.cars.values()].filter(c => c.done != null && c.done < t).length;
+  const place = ahead + 1, win = place === 1;
+  mp.result = { place, win, t };
+  const inc = firebase.firestore.FieldValue.increment;
+  netQueue(() => net.db.doc('drivers/' + net.uid).update({ 'mp.races': inc(1), 'mp.wins': inc(win ? 1 : 0) })).catch(netError);
+  if (win) confetti();
+  setTimeout(() => { if (mp.active) openModal('mpres'); }, 1200);
+}
+function renderMpResults() {
+  const c = $('#modal-content'), r = mp.result;
+  if (!r) return;
+  c.querySelector('#mpr-place').textContent = r.win ? 'You won! +1 point' : `You finished ${ordinal(r.place)}`;
+  const list = c.querySelector('#mpr-list');
+  list.textContent = '';
+  mpStandings().forEach((s, i) => {
+    const li = document.createElement('li');
+    li.className = (s.me ? 'me ' : '') + (s.t != null && i < 3 ? 'top' + (i + 1) : '');
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = s.t != null ? String(i + 1) : '–';
+    const nm = document.createElement('span'); nm.className = 'nm';
+    const icon = carIcon(s.icon);
+    if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
+    nm.append(document.createTextNode(s.name));
+    if (s.bot || s.me) { const sm = document.createElement('small'); sm.textContent = s.bot ? 'bot' : 'you'; nm.append(sm); }
+    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = s.t != null ? fmt(s.t) : 'racing…';
+    li.append(rk, nm, tm); list.append(li);
+  });
+}
+const ordinal = (n) => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th');
+function mpExit(again) {
+  mpReset();
+  closeModal();
+  loadRace(todayKey);
+  if (again) setTimeout(() => { const go = () => (state === 'title' ? mpQueue() : setTimeout(go, 300)); go(); }, 300);
+}
+function renderMpRankings(list, sub) {
+  const rows = [];
+  for (const [uid, d] of net.drivers) if (mpRaces(d) > 0) rows.push({ uid, d, wins: mpWins(d), races: mpRaces(d) });
+  rows.sort((a, b) => b.wins - a.wins || a.races - b.races);
+  if (sub) sub.textContent = net.ready ? 'Queue races against other players and bots. Winning a race scores 1 point.' : 'Multiplayer rankings need the online leaderboard.';
+  list.textContent = '';
+  if (!rows.length) { const li = document.createElement('li'); li.innerHTML = '<span></span><span class="nm">No multiplayer races yet. Press Multiplayer on the title screen to queue.</span>'; list.append(li); return; }
+  rows.slice(0, 100).forEach((r, i) => {
+    const li = document.createElement('li');
+    const me = r.uid === net.uid;
+    li.className = (me ? 'me ' : '') + (i < 3 && r.wins ? 'top' + (i + 1) : '');
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
+    const nm = document.createElement('span'); nm.className = 'nm';
+    const icon = carIcon({ id: 'drv:' + r.uid, uid: r.uid, me, color: cleanColor(r.d.color) });
+    if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
+    const who = document.createElement('span'); who.textContent = cleanName(r.d.name) || 'Driver';
+    const sm = document.createElement('small'); sm.textContent = r.races + (r.races === 1 ? ' race' : ' races') + ' · ' + Math.round(r.wins / r.races * 100) + '% wins';
+    const col = document.createElement('span'); col.style.cssText = 'display:flex;flex-direction:column;gap:3px;min-width:0'; col.append(who, sm);
+    nm.append(col);
+    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = String(r.wins);
+    const u = document.createElement('small'); u.textContent = r.wins === 1 ? 'pt' : 'pts'; tm.append(u);
+    li.append(rk, nm, tm); list.append(li);
+  });
+}
+
 /* ---------------- ghosts ---------------- */
 function boardEntries() {
   const out = [];
@@ -2963,6 +3223,16 @@ function defaultGhostSel() {
 function setupGhosts() {
   ghostObjs.forEach(g => { scene.remove(g.mesh); disposeTree(g.mesh); });
   ghostObjs = [];
+  if (mp.active) {
+    mp.ghosts = new Map();
+    for (const s of mpGhostList()) {
+      const mesh = makeCarMesh(s.color, true, s.tex), label = labelSprite(s.label, s.color);
+      mesh.add(label); scene.add(mesh);
+      const g = { mesh, label, frames: s.f, hz: s.hz, fade: -1, live: !!s.live, delay: s.live ? MP_DELAY : 0 };
+      ghostObjs.push(g); if (s.live) mp.ghosts.set(s.key, g);
+    }
+    return;
+  }
   for (const id of ghostSel) {
     const s = ghostData(id);
     if (!s || !s.f || s.f.length < 12) continue;
@@ -2976,8 +3246,8 @@ function setupGhosts() {
 function updateGhosts() {
   const t = state === 'countdown' ? 0 : state === 'replay' ? clock : clock + (state === 'racing' || state === 'finished' ? acc : 0);
   for (const g of ghostObjs) {
-    const F = g.frames, n = F.length / 6, hz = g.hz;
-    g.mesh.visible = ghostsVisible && (state === 'countdown' || state === 'racing' || state === 'finished' || state === 'replay') && t < n / hz + 2;
+    const F = g.frames, n = Math.floor(F.length / 6), hz = g.hz, tg = Math.max(0, t - (g.delay || 0));
+    g.mesh.visible = ghostsVisible && n >= 2 && (state === 'countdown' || state === 'racing' || state === 'finished' || state === 'replay') && (g.live || t < n / hz + 2);
     if (!g.mesh.visible) continue;
     // fade a ghost out as it nears the camera so it never fills the screen
     const cd = camera.position.distanceTo(g.mesh.position);
@@ -2987,7 +3257,7 @@ function updateGhosts() {
       g.mesh.userData.mats.forEach(m => { m.opacity = 0.36 * fade; });
     }
     g.label.material.opacity = clamp((cd - 7) / 6, 0, 1);
-    const f = Math.min(t * hz, n - 1), k = Math.min(Math.floor(f), n - 2), u = f - k, a = k * 6, b = a + 6;
+    const f = Math.min(tg * hz, n - 1), k = Math.min(Math.floor(f), n - 2), u = f - k, a = k * 6, b = a + 6;
     poseMesh(g.mesh, lerp(F[a], F[b], u), lerp(F[a + 1], F[b + 1], u), lerp(F[a + 2], F[b + 2], u), lerpAngle(F[a + 3], F[b + 3], u), lerp(F[a + 4], F[b + 4], u), lerp(F[a + 5], F[b + 5], u));
   }
 }
@@ -3383,7 +3653,7 @@ function frame(now) {
   if (!T || !car) return;
   if (!paused && state !== 'replay') {
     if (state === 'countdown') {
-      countdownT -= dt;
+      countdownT = mp.active && mp.goAt ? (mp.goAt - srvNow()) / 1000 : countdownT - dt;   // multiplayer: everyone gets GO at the same server time
       const n = Math.ceil(countdownT / 0.8);
       if (countdownT <= 0) { state = 'racing'; snap(car, rec); showBig('GO', 700); beep(880, 0.25, 0.12); }
       else if (n !== lastCount) { lastCount = n; showBig(String(n), 700); beep(440, 0.12, 0.1); }
@@ -3447,6 +3717,7 @@ function openMenu() {
 }
 function closeMenu() { $('#menu').hidden = true; paused = false; last = performance.now(); }
 function showTitle() {
+  if (mp.active) return;
   state = 'title'; paused = false; closeMenu(); closeModal();
   $('#hud').hidden = true; $('#touch').hidden = true; $('#finish').hidden = true;
   car = spawnCar(); orbitA = car.h + Math.PI * 0.75;
@@ -3657,9 +3928,9 @@ function toast(msg) {
 
 /* modal */
 let boardTab = 'today';
-function renderModalBoard() { if (boardTab === 'rank') renderRankings($('#mb-list'), $('#mb-sub')); else renderBoard($('#mb-list'), $('#mb-sub')); }
+function renderModalBoard() { if (boardTab === 'mp') renderMpRankings($('#mb-list'), $('#mb-sub')); else if (boardTab === 'rank') renderRankings($('#mb-list'), $('#mb-sub')); else renderBoard($('#mb-list'), $('#mb-sub')); }
 let modalKind = null, pendingRace = false, askedName = false;
-function closeModal() { $('#modal').hidden = true; modalKind = null; clearInterval(modalTimer); }
+function closeModal() { const k = modalKind; $('#modal').hidden = true; modalKind = null; clearInterval(modalTimer); if (k === 'mp') mpCancel(); else if (k === 'mpres' && mp.active) mpExit(false); }
 let modalTimer = 0;
 const previewCache = {};
 function unlockIn(k) {
@@ -3800,6 +4071,27 @@ function openModal(kind) {
     pendingRace = false;
     $('#modal').hidden = false;
     return;
+  } else if (kind === 'mp') {
+    c.innerHTML = `<h2>Multiplayer</h2>
+      <p class="sub">Race everyone who queues in the next few seconds on a random route. Bots fill the grid if there aren't enough players. Only 1st place scores: +1 point.</p>
+      <div class="mpq-clock"><b id="mpq-time">…</b><span>seconds to start</span></div>
+      <p class="note" id="mpq-note"></p>
+      <ol class="board" id="mpq-list"></ol>
+      <button class="btn" type="button" id="mpq-cancel" style="margin-top:12px;width:100%">Leave queue</button>`;
+    $('#mpq-cancel').onclick = () => closeModal();
+    renderMpQueue();
+    $('#modal').hidden = false;
+    return;
+  } else if (kind === 'mpres') {
+    c.innerHTML = `<h2>Race results</h2>
+      <p class="eyebrow" id="mpr-place" style="font-size:13px"></p>
+      <ol class="board" id="mpr-list" style="margin-top:10px"></ol>
+      <div class="row2" style="margin-top:14px"><button class="btn go" type="button" id="mpr-again">Queue again</button><button class="btn" type="button" id="mpr-exit">Back to daily race</button></div>`;
+    $('#mpr-again').onclick = () => mpExit(true);
+    $('#mpr-exit').onclick = () => mpExit(false);
+    renderMpResults();
+    $('#modal').hidden = false;
+    return;
   } else if (kind === 'account') {
     const racing = pendingRace;
     c.innerHTML = `<h2>${net.uid && !onlineName() ? 'Pick your username' : 'Driver name'}</h2>
@@ -3839,8 +4131,8 @@ function openModal(kind) {
     return;
   } else if (kind === 'board') {
     c.innerHTML = `<h2>Leaderboard</h2>
-      <div class="seg mb-tabs" id="mb-tabs"><button data-v="today" aria-pressed="${boardTab === 'today'}">Today</button><button data-v="rank" aria-pressed="${boardTab === 'rank'}">Rankings</button></div>
-      <p class="sub" id="mb-sub"></p><ol class="board${boardTab === 'rank' ? ' rank' : ''}" id="mb-list"></ol>`;
+      <div class="seg mb-tabs" id="mb-tabs"><button data-v="today" aria-pressed="${boardTab === 'today'}">Today</button><button data-v="rank" aria-pressed="${boardTab === 'rank'}">Rankings</button><button data-v="mp" aria-pressed="${boardTab === 'mp'}">Multiplayer</button></div>
+      <p class="sub" id="mb-sub"></p><ol class="board${boardTab !== 'today' ? ' rank' : ''}" id="mb-list"></ol>`;
     c.querySelectorAll('#mb-tabs button').forEach(b => b.onclick = () => { boardTab = b.dataset.v; openModal('board'); });
     renderModalBoard();
   }
@@ -3849,6 +4141,7 @@ function openModal(kind) {
 }
 
 function loadRace(key) {
+  if (mp.active) { const id = mp.id, q = mp.phase === 'queue'; mpReset(); if (q) mpLeaveLobby(id); }
   raceKey = key;
   state = 'loading';
   hideCards(); closeMenu();
@@ -3962,6 +4255,7 @@ $('#b-race').onclick = () => {
   if (net.ready && net.writable && !onlineName() && !askedName) { askedName = true; pendingRace = true; ensureAudio(); openModal('account'); return; }
   restart();
 };
+$('#b-mp').onclick = () => { ensureAudio(); mpQueue(); };
 $('#m-retry').onclick = () => restart();
 $('#m-resume').onclick = () => closeMenu();
 $('#m-info').onclick = () => showTitle();
