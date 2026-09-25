@@ -1098,6 +1098,11 @@ function stepCar(c, inp, dt) {
   };
   let contacts = 0, left = 0, right = 0, rampC = false, rearSlip = 0, surf = null;
   const back = -vfB * 3.6;
+  // handbrake drift assist: past ~40 degrees of slide, ease the spin so it stays a drift, not a 180
+  if (inp.hand && c.grounded) {
+    const hs0 = Math.hypot(c.vx, c.vz);
+    if (hs0 > 4) { let sa = Math.atan2(c.vx, c.vz) - c.h; sa = Math.atan2(Math.sin(sa), Math.cos(sa)); if (Math.abs(sa) > 0.7 && c.wy * sa < 0) c.wy *= Math.exp(-dt * 7); }
+  }
   // brakes squeeze on over a third of a second instead of grabbing, and reverse waits until you've been stopped a moment
   c.brk = inp.brake && vfB > 0.5 ? Math.min(1, (c.brk || 0) + dt / 0.25) : 0;
   c.revT = inp.brake && vfB <= 0.5 ? (c.revT || 0) + dt : 0;
@@ -1158,7 +1163,10 @@ function stepCar(c, inp, dt) {
       else if (c.revT <= 0.3) fF -= Math.sign(vF) * Math.min(stopF, limF * 0.3);  // hold still for a beat before reversing
     }
     if (!inp.throttle && !inp.brake) fF -= Math.sign(vF) * Math.min(S.roll / 4, stopF);
-    if (inp.hand && !front) fF = -Math.sign(vF) * stopF;                        // locked rear wheels
+    if (inp.hand && !front) {                                                    // handbrake: a light drag on the rears and looser side grip, so the tail steps out into a drift
+      fF = fF * 0.5 - Math.sign(vF) * Math.min(stopF, limF * 0.15);
+      fL *= 0.72;
+    }
     if (inp.hand && !front) {
       const e2 = (fF / limF) * (fF / limF) + (fL / lim) * (fL / lim);           // locked wheels share grip: the tail lets go
       if (e2 > 1) { const k2 = 1 / Math.sqrt(e2); fF *= k2; fL *= k2; }
