@@ -1,21 +1,6 @@
 <meta charset="utf-8">
 <title>Daily Swerve</title>
 <!-- Firebase (compat SDKs — keep the same collection()/doc()/onSnapshot() shape the game code already uses) -->
-<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
-<script>
-  // ---- Paste your Firebase project's config here (Project settings > General > Your apps) ----
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
-  firebase.initializeApp(firebaseConfig);
-</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -79,6 +64,14 @@ dd{margin:0;font:800 15px/1.1 var(--ui);font-variant-numeric:tabular-nums}
 .btn.go:hover{background:var(--go-dark)}
 .btn.dark{background:var(--ink);border-color:var(--ink);color:#fff}
 .btn.dark:hover{background:#243642}
+a.btn{text-decoration:none;color:var(--ink)}
+.btn.yt{min-height:40px;font-size:12px}
+.btn.yt svg{flex:none}
+.btn.gsi{width:100%}
+.or{display:flex;align-items:center;gap:10px;margin:16px 0 4px;font:800 10px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.si-skip{display:block;margin:10px auto 0}
+.credits{margin:16px 0 0;padding-top:10px;border-top:1px solid var(--line);text-align:center;font:700 10px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .btn kbd{font:700 10px/1 var(--ui);border:1px solid currentColor;border-radius:3px;padding:3px 5px;opacity:.75}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .keys{display:flex;justify-content:center;flex-wrap:wrap;gap:10px 14px;padding-top:4px}
@@ -342,6 +335,7 @@ body.touch .key-legend{display:none}
   <button id="b-race" class="btn go" disabled>Race now</button>
   <div class="row2"><button class="btn" data-open="vehicle">Edit vehicle</button><button class="btn" data-open="past">Races</button></div>
   <button class="btn dark" data-open="board">Leaderboard</button>
+  <a class="btn yt" href="https://youtube.com/@NeoDogez" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#ff0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/><path fill="#fff" d="M9.6 15.6 15.8 12 9.6 8.4z"/></svg>Subscribe to NeoDogez</a>
   <div class="keys key-legend" aria-label="Controls">
     <div class="key"><span><kbd>W</kbd><kbd>↑</kbd></span>Throttle</div>
     <div class="key"><span><kbd>A</kbd><kbd>D</kbd></span>Steer</div>
@@ -372,15 +366,6 @@ body.touch .key-legend{display:none}
   <textarea id="f-sharetext" readonly hidden aria-label="Result text"></textarea>
   <nav class="foot"><button class="link" id="f-info">Route info</button><button class="link" data-open="past">Past races</button></nav>
 </section>
-
-<div id="signin-gate" style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:#0b0d10;color:#fff;font-family:inherit;text-align:center;padding:20px;">
-  <div style="max-width:360px;">
-    <h2 style="margin:0 0 8px;font-size:22px;">Daily Swerve</h2>
-    <p style="margin:0 0 20px;opacity:.75;font-size:14px;">Sign in with Google to race, save your car design, and keep your times on the shared leaderboard.</p>
-    <button id="signin-btn" style="padding:12px 22px;border-radius:999px;border:0;background:#fff;color:#111;font-weight:700;cursor:pointer;">Sign in with Google</button>
-    <p id="signin-err" style="margin:14px 0 0;color:#ff8080;font-size:13px;min-height:1em;"></p>
-  </div>
-</div>
 
 <div id="menu" class="overlay" hidden>
   <div class="menu-col panel">
@@ -456,6 +441,9 @@ body.touch .key-legend{display:none}
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (() => {
@@ -2714,7 +2702,7 @@ function finishRace() {
 /* ---------------- shared leaderboard (db) ---------------- */
 // drivers/<uid>: { name, color, joined, best: { "YYYY-MM-DD": { t, splits, ts } } }
 // ghosts/<uid>:  { days: { "YYYY-MM-DD": { hz, f: [x,y,z,h,pitch,roll, ...] } } }
-const net = { db: null, uid: null, ready: false, writable: true, drivers: new Map(), q: Promise.resolve() };
+const net = { db: null, auth: null, user: null, uid: null, ready: false, writable: true, drivers: new Map(), q: Promise.resolve() };
 const ghostCache = {};
 const cleanName = (s) => String(s == null ? '' : s).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 16);
 const cleanColor = (s) => /^#[0-9a-f]{6}$/i.test(s) ? s : '#ffd36b';
@@ -2722,52 +2710,65 @@ const onlineName = () => net.ready && net.drivers.get(net.uid) ? cleanName(net.d
 const myName = () => onlineName() || cleanName(settings.driverName);
 function netQueue(fn) { const p = net.q.then(fn); net.q = p.catch(() => {}); return p; }
 
+// Firebase: config comes from Firebase Hosting's /__/firebase/init.json, so this only goes online on the hosted site
 async function initNet() {
-  if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  net.db = db;
-
-  const gate = document.getElementById('signin-gate');
-  const btn = document.getElementById('signin-btn');
-  const err = document.getElementById('signin-err');
-  btn.onclick = async () => {
-    err.textContent = '';
-    btn.disabled = true;
-    try {
-      await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-      // onAuthStateChanged below picks it up from here
-    } catch (e) {
-      err.textContent = 'Sign-in failed. Try again.';
-      btn.disabled = false;
+  const fb = window.firebase;
+  if (!fb) return;
+  try {
+    if (!fb.apps.length) {
+      const r = await fetch('/__/firebase/init.json');
+      if (!r.ok) return;
+      fb.initializeApp(await r.json());
     }
-  };
-
-  auth.onAuthStateChanged(async (user) => {
-    if (!user) { gate.style.display = 'flex'; net.uid = null; net.writable = false; return; }
-    gate.style.display = 'none';
-    net.uid = user.uid; net.writable = true;
-
-    db.collection('drivers').limit(1000).onSnapshot((snap) => {
+    net.auth = fb.auth(); net.db = fb.firestore();
+    net.db.collection('drivers').limit(1000).onSnapshot((snap) => {
       const m = new Map();
       snap.docs.forEach(d => { if (d.exists) m.set(d.id, d.data()); });
       net.drivers = m; net.ready = true;
-      if (!settings.driverName && onlineName()) { settings.driverName = onlineName(); saveSettings(); }
       refreshBoards();
-      // first ever sign-in for this account: no saved username yet, ask for one
-      if (net.ready && !onlineName() && !net._askedName) { net._askedName = true; openModal('account'); }
     }, () => { net.ready = false; refreshBoards(); });
-
-    // pull this account's saved car paint down into the garage on first load
-    try {
-      const s = await db.doc('drivers/' + user.uid).get();
-      if (s.exists && typeof s.data().paint === 'string' && decodePaint(s.data().paint, MY_PAINT)) {
-        store.set('ds:paint', s.data().paint);
-        if (s.data().color) { settings.color = s.data().color; saveSettings(); }
-        refreshMyPaint();
-      }
-    } catch (e) {}
-  });
+    net.auth.onAuthStateChanged(async (u) => {
+      net.uid = u ? u.uid : null; net.user = u || null;
+      if (u) await pullAccount();
+      refreshBoards();
+      if (state === 'title') renderTitle();
+    });
+  } catch (e) { console.error(e); net.db = null; net.auth = null; }
+}
+// load the signed-in driver's name, paint and best times into this browser
+async function pullAccount() {
+  try {
+    const s = await net.db.doc('drivers/' + net.uid).get();
+    if (!s.exists) { if (modalKind !== 'account') openModal('account'); return; }
+    const d = s.data();
+    net.drivers.set(net.uid, d);
+    if (d.name) settings.driverName = cleanName(d.name);
+    if (/^#[0-9a-f]{6}$/i.test(d.color)) settings.color = d.color;
+    saveSettings();
+    if (typeof d.paint === 'string' && decodePaint(d.paint, MY_PAINT)) { store.set('ds:paint', d.paint); refreshMyPaint(); }
+    else if (carMesh) carMesh.userData.paint.color.set(settings.color);
+    for (const k in (d.best || {})) {
+      const b = d.best[k];
+      if (!b || typeof b.t !== 'number') continue;
+      const runs = getRuns(k);
+      if (runs.some(r => Math.abs(r.t - b.t) < 1e-6)) continue;
+      runs.push({ t: b.t, splits: Array.isArray(b.splits) ? b.splits : [], ts: b.ts || Date.now() });
+      saveRuns(k, runs);
+    }
+    if (modalKind === 'signin' && !$('#modal').hidden) closeModal();
+    toast('Signed in as ' + (cleanName(d.name) || 'driver'));
+  } catch (e) { netError(e); }
+}
+function authMessage(e) {
+  const c = e && e.code || '';
+  if (c === 'auth/invalid-email') return 'That email address does not look right.';
+  if (c === 'auth/missing-password' || c === 'auth/weak-password') return 'Use a password with at least 6 characters.';
+  if (c === 'auth/email-already-in-use') return 'That email already has an account. Sign in instead.';
+  if (c === 'auth/invalid-credential' || c === 'auth/wrong-password' || c === 'auth/user-not-found' || c === 'auth/invalid-login-credentials') return 'Wrong email or password.';
+  if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return '';
+  if (c === 'auth/unauthorized-domain') return 'This site is not an authorized domain in Firebase Authentication settings.';
+  if (c === 'auth/operation-not-allowed') return 'This sign-in method is not turned on in Firebase.';
+  return 'Could not sign in. ' + (e && e.message || '');
 }
 function refreshBoards() {
   if (!T) return;
@@ -2776,18 +2777,19 @@ function refreshBoards() {
   if (state === 'title') renderTitle();
 }
 function netError(e) {
-  if (e && (e.code === 'invalid_argument' || e.code === 'permission-denied')) { net.writable = false; toast('You can view the leaderboard but not post to it'); }
-  else if (e && (e.code === 'quota_exceeded' || e.code === 'resource-exhausted')) toast('The leaderboard is full');
+  if (e && e.code === 'permission-denied') toast(net.uid ? 'The leaderboard refused that save' : 'Sign in to post to the leaderboard');
+  else if (e && e.code === 'resource-exhausted') toast('The leaderboard is full');
   else toast('Could not reach the leaderboard. Try again.');
 }
 async function saveDriverName(name) {
   settings.driverName = name; saveSettings();
   if (!net.db || !net.writable) return true;
+  if (!net.uid) return false;
   try {
     await netQueue(async () => {
       const ref = net.db.doc('drivers/' + net.uid), s = await ref.get();
       if (s.exists) await ref.update({ name, color: settings.color });
-      else await ref.set({ name, color: settings.color, joined: Date.now(), best: {} });
+      else await ref.set({ name, color: settings.color, joined: Date.now(), best: {}, paint: encodePaint(MY_PAINT) });
     });
     const runs = getRuns(raceKey);
     if (runs.length) postTime(raceKey, runs[0]);
@@ -2810,7 +2812,7 @@ async function postTime(key, entry) {
       const best = Object.assign({}, cur.best || {});
       best[key] = { t: entry.t, splits: entry.splits, ts: entry.ts };
       Object.keys(best).sort().slice(0, -40).forEach(k => delete best[k]);
-      await ref.set({ name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best });
+      await ref.set({ name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT) });
       if (entry.g && entry.g.length) {
         const gref = net.db.doc('ghosts/' + net.uid), gs = await gref.get();
         const days = Object.assign({}, gs.exists && gs.data().days || {});
@@ -3397,6 +3399,11 @@ function renderTitle() {
     : '');
   const b = $('#b-race'); b.disabled = false; b.textContent = runs.length ? 'Race again' : 'Race now';
   updateNextLine();
+  if (net.auth && !net.uid) {
+    $('#t-driver-name').textContent = 'Sign in to save your car and times';
+    $('#t-driver-act').textContent = 'Sign in';
+    return;
+  }
   const nm = myName();
   $('#t-driver-name').textContent = nm ? 'Driving as ' + nm : 'Pick a driver name';
   const racers = net.ready ? onlineRows().length : 0;
@@ -3414,10 +3421,10 @@ function renderBoard(list, sub) {
       const live = document.createElement('span'); live.className = 'live'; live.textContent = 'Live';
       sub.append(live, document.createTextNode(onlineName()
         ? ' Best time per driver, for everyone who opens this game. Click a driver to race their ghost.'
-        : ' Your runs stay on this device until you pick a driver name. '));
-      if (!onlineName()) { const l = document.createElement('button'); l.className = 'inline-link'; l.textContent = 'Pick a name'; l.onclick = () => openModal('account'); sub.append(l); }
+        : net.uid ? ' Your runs stay on this device until you pick a driver name. ' : ' Your runs stay on this device until you sign in. '));
+      if (!onlineName()) { const l = document.createElement('button'); l.className = 'inline-link'; l.textContent = net.uid ? 'Pick a name' : 'Sign in'; l.onclick = () => openModal('account'); sub.append(l); }
     } else {
-      sub.append(document.createTextNode('Runs on this device. The shared leaderboard is offline right now — check your connection.'));
+      sub.append(document.createTextNode('Could not connect to the online leaderboard. Your runs are saved on this device.'));
     }
   }
   list.textContent = '';
@@ -3463,7 +3470,7 @@ function renderBoardNote(entry, posting) {
   if (!net.db) { el.textContent = 'Saved on this device.'; return; }
   if (!onlineName()) {
     el.append(document.createTextNode('This time is only on this device. '));
-    const l = document.createElement('button'); l.className = 'inline-link'; l.textContent = 'Pick a driver name to post it';
+    const l = document.createElement('button'); l.className = 'inline-link'; l.textContent = net.uid ? 'Pick a driver name to post it' : 'Sign in to post it';
     l.onclick = () => openModal('account'); el.append(l);
     return;
   }
@@ -3564,6 +3571,7 @@ setInterval(() => {
   if (state === 'title') updateNextLine();
 }, 20000);
 function openModal(kind) {
+  if (kind === 'account' && net.auth && !net.uid) kind = 'signin';
   modalKind = kind;
   const c = $('#modal-content');
   if (kind === 'howto') {
@@ -3605,7 +3613,8 @@ function openModal(kind) {
       <div class="setrow"><b>Sound</b>${seg('sound', [[true, 'On'], [false, 'Off']])}</div>
       <div class="setrow"><b>Ghosts</b>${seg('ghosts', [[true, 'Show'], [false, 'Hide']])}</div>
       <div class="setrow"><b>Camera</b>${seg('camera', [[0, 'Chase'], [1, 'Far'], [2, 'Hood']])}</div>
-      <p class="sub">Resolution adjusts itself to keep the game smooth, and shadows switch off if your device still struggles. Low graphics starts without shadows, at lower resolution, with less grass. The physics are the same at every setting.</p>`;
+      <p class="sub">Resolution adjusts itself to keep the game smooth, and shadows switch off if your device still struggles. Low graphics starts without shadows, at lower resolution, with less grass. The physics are the same at every setting.</p>
+      <p class="credits">Made by nowdogs and fesse</p>`;
     c.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
       const key = b.parentElement.dataset.key, raw = b.dataset.v;
       const v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
@@ -3643,10 +3652,44 @@ function openModal(kind) {
     const tick = () => document.querySelectorAll('[data-unlock]').forEach(el => { el.textContent = unlockIn(el.dataset.unlock); });
     clearInterval(modalTimer); modalTimer = setInterval(tick, 1000);
     c.querySelectorAll('.past button').forEach(b => b.onclick = () => { closeModal(); loadRace(b.dataset.k); });
+  } else if (kind === 'signin') {
+    const racing = pendingRace;
+    c.innerHTML = `<h2>Sign in</h2>
+      <p class="sub">Save your username, car paint and best times to your account and post them to the leaderboard. You stay signed in on this browser.</p>
+      <button class="btn gsi" type="button" id="si-google"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17z"/><path fill="#FBBC05" d="M10.6 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
+      <p class="or">or use a password</p>
+      <form id="si-form" novalidate>
+        <input class="field" id="si-email" type="email" autocomplete="email" placeholder="Email" spellcheck="false">
+        <input class="field" id="si-pass" type="password" autocomplete="current-password" placeholder="Password (6+ characters)" style="margin-top:8px">
+        <p class="err" id="si-err" role="alert"></p>
+        <div class="row2"><button class="btn go" type="submit" id="si-in">Sign in</button><button class="btn" type="button" id="si-new">Create account</button></div>
+      </form>
+      <button class="link si-skip" type="button" id="si-skip">${racing ? 'Race without an account' : 'Not now'}</button>`;
+    const err = $('#si-err');
+    const run = async (fn) => {
+      err.textContent = '';
+      c.querySelectorAll('button').forEach(b => b.disabled = true);
+      try { await fn(); }
+      catch (e) { err.textContent = authMessage(e); }
+      c.querySelectorAll('button').forEach(b => b.disabled = false);
+    };
+    $('#si-google').onclick = () => run(async () => {
+      const prov = new firebase.auth.GoogleAuthProvider();
+      try { await net.auth.signInWithPopup(prov); }
+      catch (e) { if (e && e.code === 'auth/popup-blocked') await net.auth.signInWithRedirect(prov); else throw e; }
+    });
+    const creds = () => [$('#si-email').value.trim(), $('#si-pass').value];
+    $('#si-form').onsubmit = (e) => { e.preventDefault(); run(() => net.auth.signInWithEmailAndPassword(...creds())); };
+    $('#si-new').onclick = () => run(() => net.auth.createUserWithEmailAndPassword(...creds()));
+    $('#si-skip').onclick = () => { closeModal(); if (racing) restart(); };
+    pendingRace = false;
+    $('#modal').hidden = false;
+    return;
   } else if (kind === 'account') {
     const racing = pendingRace;
-    c.innerHTML = `<h2>Driver name</h2>
+    c.innerHTML = `<h2>${net.uid && !onlineName() ? 'Pick your username' : 'Driver name'}</h2>
       <p class="sub" id="acc-sub"></p>
+      ${net.user ? `<p class="sub">Signed in as <b id="acc-who"></b> · <button class="inline-link" type="button" id="acc-out">Sign out</button></p>` : ''}
       <form id="acc-form" novalidate>
         <label class="hl" for="acc-name" style="color:var(--muted)">Name on the leaderboard</label>
         <input class="field" id="acc-name" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="e.g. Sideways Sam">
@@ -3655,7 +3698,7 @@ function openModal(kind) {
       </form>`;
     $('#acc-sub').textContent = net.db
       ? 'Everyone who opens this game sees this name next to your best time each day. 2 to 16 letters, numbers, spaces, dots, dashes or underscores.'
-      : 'The shared leaderboard is offline right now. Here your name is saved on this device.';
+      : 'Could not connect to the online leaderboard. Your name is saved on this device for now.';
     const input = $('#acc-name');
     input.value = myName();
     $('#acc-skip').onclick = () => { closeModal(); if (racing) restart(); };
