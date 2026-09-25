@@ -270,6 +270,34 @@ body.touch #flip .k-touch{display:inline}
 .wb-mid b{font:400 22px/1 var(--display);text-transform:uppercase;white-space:nowrap}
 .wb-btns{display:flex;gap:6px}
 .wb-btns .btn{min-height:40px;font-size:11px;padding:0 12px}
+.mp-menu{display:grid;gap:10px;margin-top:6px}
+#mpq-party{font-size:clamp(26px,5vw,36px);padding-right:44px;overflow-wrap:anywhere}
+.mp-big{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:16px 18px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);cursor:pointer;text-align:left;color:var(--ink)}
+.mp-big:hover{background:#fff}
+.mp-big b{font:400 26px/1 var(--display);text-transform:uppercase}
+.mp-big span{font:600 12px/1.3 var(--ui);color:var(--muted)}
+.mp-big.go{background:var(--go);border-color:var(--go);color:#fff}
+.mp-big.go span{color:rgba(255,255,255,.85)}
+.mp-big.go:hover{background:var(--go-dark)}
+.mpc{display:flex;flex-direction:column;gap:8px}
+.mpc-sel{height:44px;font-size:14px;margin-top:0}
+.mpq-coursebar{margin:-2px 0 4px;font:700 13px/1.3 var(--ui);color:var(--ink)}
+.mpq-full{grid-column:1/-1}
+.mpq-pwrow{display:flex;gap:6px}
+.mpq-pwrow .field{margin-top:0;height:44px}
+.mpj-row{grid-template-columns:1fr auto!important;row-gap:8px}
+.mpj-col{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mpj-col b{font:800 14px/1.2 var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mpj-course{color:var(--ink)!important}
+.mpj-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.mpj-tag{font:800 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--good)}
+.mpj-tag.locked{color:var(--warn)}
+.mpj-tag.racing{color:var(--go-dark)}
+.mpj-btn{min-height:34px;padding:0 16px;font-size:12px}
+.mpj-pw{grid-column:1/-1;display:flex;gap:6px;align-items:center}
+.mpj-pw .field{margin-top:0;height:40px;font-size:14px}
+.mpj-pw .btn{min-height:40px}
+.mpj-pw .err{margin:0;min-height:0}
 .mpq-lead{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin-top:12px}
 .mpq-check{display:flex;align-items:center;gap:8px;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--paper-2);cursor:pointer;font:800 13px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase}
 .mpq-check input{width:18px;height:18px;accent-color:var(--go);margin:0}
@@ -3494,78 +3522,151 @@ async function mpSyncClock() {
   if (ping && ping.toMillis) mp.off = ping.toMillis() - (t0 + t1) / 2;
   mp.ping = Math.round(t1 - t0);
 }
-// one shared pointer doc (lobbies/open) names the lobby everyone joins; a transaction on it means two
-// players queueing at the same moment always land in the same lobby. Its creator is the party leader and
-// starts the race; players who stop sending heartbeats are dropped.
 const MP_STALE = 9000;
-async function mpFindLobby() {
-  const me = { name: onlineName(), color: settings.color, seen: Math.round(srvNow()), joined: Math.round(srvNow()), ping: mp.ping || null };
-  const openRef = net.db.doc('lobbies/open');
-  return net.db.runTransaction(async (tx) => {
-    const now = srvNow();
-    const open = await tx.get(openRef);
-    const id = open.exists && open.data().id, live = (open.exists && open.data().live) || null;
-    if (id) {
-      const ref = net.db.doc('lobbies/' + id), snap = await tx.get(ref), L = snap.exists ? snap.data() : null;
-      if (L && L.startAt == null) {
-        const live = Object.entries(L.players || {}).filter(([uid, p]) => uid !== net.uid && p && now - (p.seen || 0) < MP_STALE);
-        if (live.length < MP_MAX) {
-          const prev = L.players && L.players[net.uid];
-          const upd = { ['players.' + net.uid]: prev && prev.joined ? Object.assign({}, me, { joined: prev.joined }) : me };
-          Object.keys(L.players || {}).forEach(uid => { if (uid !== net.uid && !live.some(([u]) => u === uid)) upd['players.' + uid] = firebase.firestore.FieldValue.delete(); });
-          tx.update(ref, upd);
-          return { id, live };
-        }
-      }
-    }
-    const ref = net.db.collection('lobbies').doc();
-    const day = new Date(2020, 0, 1 + Math.floor(Math.random() * 2190));
-    tx.set(ref, { startAt: null, bots: true, key: dateKey(day), host: net.uid, players: { [net.uid]: me } });
-    tx.set(openRef, { id: ref.id, live });
-    return { id: ref.id, live };
-  });
+// ---- parties: create one (locked with a password by default, pick a course) or join one from the list ----
+async function pwHash(pw) {
+  const txt = 'swerrvle|' + String(pw || '');
+  try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+  catch (e) { let h = 0; for (let i = 0; i < txt.length; i++) h = Math.imul(h ^ txt.charCodeAt(i), 16777619) >>> 0; return 'x' + h.toString(16); }
 }
-async function mpQueue() {
-  if (!net.db) { toast('Multiplayer needs the online leaderboard'); return; }
-  if (!net.uid) { openModal('signin'); return; }
-  if (!onlineName()) { openModal('account'); return; }
-  if (mp.phase !== 'idle') return;
-  mp.phase = 'queue'; mp.id = null; mp.lobby = null;
-  openModal('mp');
+const randomCourseKey = () => dateKey(new Date(2020, 0, 1 + Math.floor(Math.random() * 2190)));
+function courseInfo(key) {
+  let info = previewCache[key];
+  if (!info) { try { info = previewCache[key] = buildTrackData(key, true); } catch (e) { info = null; } }
+  return info;
+}
+function courseLabel(L) {
+  if (!L) return '';
+  const info = courseInfo(L.key);
+  if (L.course === 'random' || !L.course) return 'Random route' + (info ? ' · ' + info.name : '');
+  return (L.course === todayKey ? "Today's route" : prettyDate(L.course)) + (info ? ' · ' + info.name + ' · ' + (info.length / 1000).toFixed(2) + ' km' : '');
+}
+function courseOptions(sel) {
+  let h = `<option value="random"${sel === 'random' ? ' selected' : ''}>🎲 Random route</option>`;
+  for (let d = 0; d < 21; d++) {
+    const k = dateKey(new Date(Date.now() - d * 86400000)), info = courseInfo(k);
+    h += `<option value="${k}"${sel === k ? ' selected' : ''}>${d === 0 ? 'Today · ' : ''}${prettyDate(k)}${info ? ' · ' + info.name : ''}</option>`;
+  }
+  return h;
+}
+function mpMe() { return { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, seen: Math.round(srvNow()), joined: Math.round(srvNow()), ping: mp.ping || null }; }
+function mpReady() {
+  if (!net.db) { toast('Multiplayer needs the online leaderboard'); return false; }
+  if (!net.uid) { openModal('signin'); return false; }
+  if (!onlineName()) { openModal('account'); return false; }
+  return true;
+}
+function mpOpen() { if (!mpReady()) return; openModal('mp'); }
+async function mpCreateParty(opt) {
+  if (!mpReady() || mp.phase !== 'idle') return;
   try {
     await mpSyncClock();
-    if (mp.phase !== 'queue') return;
-    const found = await mpFindLobby(), id = found.id;
-    if (mp.phase !== 'queue') { mpLeaveLobby(id); return; }
-    mp.id = id;
-    if (found.live && found.live !== id) mpTrySpectate(found.live);
-    mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => { if (s.exists) { mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue(); } }));
-    clearInterval(mp.timer);
-    let beat = 0;
-    mp.timer = setInterval(() => {
-      if (modalKind === 'mp') renderMpQueue();
-      const L = mp.lobby;
-      if (L && L.startAt != null && srvNow() >= L.startAt) { clearInterval(mp.timer); mpStart(); return; }
-      if ((beat += 250) >= 3000) {   // heartbeat so a closed tab doesn't hold a spot; also starts the clock if a second player is waiting
-        beat = 0;
-        const t0 = Date.now();
-        const upd = { ['players.' + net.uid + '.seen']: Math.round(srvNow()) };
-        if (mp.ping != null) upd['players.' + net.uid + '.ping'] = mp.ping;
-        net.db.doc('lobbies/' + id).update(upd).then(() => { mp.ping = Math.round(mp.ping == null ? Date.now() - t0 : mp.ping * 0.5 + (Date.now() - t0) * 0.5); }).catch(() => {});
-      }
-    }, 250);
-  } catch (e) {
-    console.error(e);
-    mpReset();
-    closeModal();
-    toast(e && e.code === 'permission-denied' ? 'Multiplayer is not allowed by the database rules yet' : 'Could not join a race. Try again.');
-  }
+    const ref = net.db.collection('lobbies').doc();
+    const locked = !!opt.locked && !!opt.password;
+    const hash = locked ? await pwHash(opt.password) : null;
+    await ref.set({ name: onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: opt.bots !== false, course: opt.course || 'random',
+      key: opt.course && opt.course !== 'random' ? opt.course : randomCourseKey(), host: net.uid, locked, pw: hash, members: [net.uid], players: { [net.uid]: mpMe() } });
+    mp.pw = hash;
+    await mpEnterLobby(ref.id);
+  } catch (e) { mpFail(e); }
+}
+async function mpJoinParty(id, password, hashIn) {
+  if (!mpReady()) return 'no';
+  try {
+    await mpSyncClock();
+    const hash = hashIn || (password ? await pwHash(password) : null);
+    const ref = net.db.doc('lobbies/' + id);
+    const res = await net.db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref), L = snap.exists ? snap.data() : null, now = srvNow();
+      if (!L) return 'gone';
+      if (L.locked && L.pw && hash !== L.pw && !(L.members || []).includes(net.uid)) return 'password';
+      if (L.startAt != null) return 'racing';
+      const live = Object.entries(L.players || {}).filter(([uid, p]) => uid !== net.uid && p && now - (p.seen || 0) < MP_STALE);
+      if (live.length >= MP_MAX) return 'full';
+      const prev = L.players && L.players[net.uid], me = mpMe();
+      const upd = { ['players.' + net.uid]: prev && prev.joined ? Object.assign({}, me, { joined: prev.joined }) : me, members: firebase.firestore.FieldValue.arrayUnion(net.uid) };
+      Object.keys(L.players || {}).forEach(uid => { if (uid !== net.uid && !live.some(([u]) => u === uid)) upd['players.' + uid] = firebase.firestore.FieldValue.delete(); });
+      tx.update(ref, upd);
+      return 'ok';
+    });
+    if (res === 'ok') { mp.pw = hash; await mpEnterLobby(id); }
+    else if (res === 'racing') { mp.pw = hash; mpSpectateParty(id); }
+    return res;
+  } catch (e) { mpFail(e); return 'error'; }
+}
+function mpFail(e) {
+  console.error(e);
+  mpReset(); closeModal();
+  toast(e && e.code === 'permission-denied' ? 'Multiplayer is not allowed by the database rules yet' : 'Could not reach the party. Try again.');
+}
+// joined a party mid-race: watch it, then hop into its next round as soon as the leader opens it
+function mpSpectateParty(id) {
+  mp.phase = 'queue'; mp.id = null; mp.lobby = null;
+  closeModal();
+  mpTrySpectate(id);
+  const un = net.db.doc('lobbies/' + id).onSnapshot((s) => {
+    const L = s.exists ? s.data() : null;
+    if (L && L.next && mp.phase === 'queue' && !mp.id) { un(); mpStopSpectate(); mp.phase = 'idle'; mpJoinParty(L.next, null, mp.pw).then(r => { if (r !== 'ok') { toast(r === 'password' ? 'That party changed its password' : 'Could not join the next round'); mpExit(false); } }); }
+  });
+  mp.unsub.push(un);
+}
+async function mpEnterLobby(id) {
+  mp.phase = 'queue'; mp.id = id; mp.lobby = null;
+  mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => { if (s.exists) { mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue(); } }));
+  openModal('mp');
+  clearInterval(mp.timer);
+  let beat = 0;
+  mp.timer = setInterval(() => {
+    if (modalKind === 'mp') renderMpQueue();
+    const L = mp.lobby;
+    if (L && L.startAt != null && srvNow() >= L.startAt) { clearInterval(mp.timer); mpStart(); return; }
+    if ((beat += 250) >= 3000) {   // heartbeat so a closed tab doesn't hold a spot, and our ping for the list
+      beat = 0;
+      const t0 = Date.now();
+      const upd = { ['players.' + net.uid + '.seen']: Math.round(srvNow()) };
+      if (mp.ping != null) upd['players.' + net.uid + '.ping'] = mp.ping;
+      net.db.doc('lobbies/' + id).update(upd).then(() => { mp.ping = Math.round(mp.ping == null ? Date.now() - t0 : mp.ping * 0.5 + (Date.now() - t0) * 0.5); }).catch(() => {});
+    }
+  }, 250);
+}
+// after a race: everyone goes back to the same party. The leader opens the next round; the rest follow it.
+async function mpNextRound() {
+  const oldId = mp.id, pw = mp.pw;
+  if (!oldId) { mpExit(false); return; }
+  if (net.rt) net.rt.ref('mp/' + oldId + '/' + net.uid).remove().catch(() => {});
+  mpReset(); closeModal(); loadRace(todayKey);
+  await new Promise(r => { const t = setInterval(() => { if (state === 'title' || state === 'error') { clearInterval(t); r(); } }, 100); });   // the title screen closes modals as it opens
+  const ref = net.db.doc('lobbies/' + oldId);
+  try {
+    const nextId = await net.db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref), L = snap.exists ? snap.data() : null;
+      if (!L) return null;
+      if (L.next) return L.next;
+      // nobody heartbeats during a race, so pick the leader from everyone who raced: the host, else the longest in the party
+      const all = Object.entries(L.players || {}).sort((a, b) => ((a[1] && a[1].joined) || 0) - ((b[1] && b[1].joined) || 0));
+      const lead = (L.players || {})[L.host] ? L.host : all.length ? all[0][0] : net.uid;
+      if (lead !== net.uid) return '';
+      const nref = net.db.collection('lobbies').doc();
+      tx.set(nref, { name: L.name || onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: L.bots !== false, course: L.course || 'random',
+        key: L.course && L.course !== 'random' ? L.course : randomCourseKey(), host: net.uid, locked: !!L.locked, pw: L.pw || null,
+        members: [...new Set([...(L.members || []), ...Object.keys(L.players || {})])], players: { [net.uid]: mpMe() } });
+      tx.update(ref, { next: nref.id });
+      return nref.id;
+    });
+    if (nextId === null) { toast('That party has closed'); return; }
+    if (nextId) { const r = await mpJoinParty(nextId, null, pw); if (r !== 'ok' && r !== 'racing') toast('Could not rejoin the party'); return; }
+    // not the leader: wait for them to open the next round
+    mp.phase = 'waitnext'; openModal('mpwait');
+    const un = ref.onSnapshot((s) => { const L = s.exists ? s.data() : null; if (L && L.next && mp.phase === 'waitnext') { un(); mp.phase = 'idle'; closeModal(); mpJoinParty(L.next, null, pw); } });
+    mp.unsub.push(un);
+  } catch (e) { mpFail(e); }
 }
 function mpLeaveLobby(id) {
   if (!id || !net.db) return;
   net.db.doc('lobbies/' + id).update({ ['players.' + net.uid]: firebase.firestore.FieldValue.delete() }).catch(() => {});
 }
 function mpCancel() {
+  if (mp.phase === 'waitnext') { mpReset(); return; }
   if (mp.phase !== 'queue') return;
   const id = mp.id;
   mpReset();
@@ -3589,7 +3690,11 @@ function mpLeader(L) {   // the lobby's creator leads; if they leave, the longes
 function pingClass(ms) { return ms == null ? '' : ms < 120 ? 'good' : ms < 250 ? 'ok' : 'bad'; }
 function renderMpQueue() {
   const c = $('#modal-content'), L = mp.lobby;
+  if (!c.querySelector('#mpq-time')) return;
   const waiting = !L || L.startAt == null;
+  const hd = c.querySelector('#mpq-party');
+  if (hd) hd.textContent = L ? (L.name || 'Party') + (L.locked ? ' 🔒' : ' 🔓') : 'Party';
+  const cl = c.querySelector('#mpq-course'); if (cl) cl.textContent = L ? courseLabel(L) : '…';
   const left = waiting ? null : Math.max(0, Math.ceil((L.startAt - srvNow()) / 1000));
   const players = L ? mpLive(L) : [];
   const leader = L ? mpLeader(L) : null, lead = leader === net.uid, botsOn = !L || L.bots !== false;
@@ -3599,11 +3704,13 @@ function renderMpQueue() {
   const leaderName = leader && L.players[leader] ? cleanName(L.players[leader].name) : '';
   c.querySelector('#mpq-note').textContent = !L ? 'Finding a lobby…'
     : !waiting ? `Starting${bots ? ` with ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''}…`
-    : lead ? `You're the party leader. Press Start when everyone's in.${bots ? ` ${bots} ${bots === 1 ? 'bot' : 'bots'} will fill the grid.` : ''}`
+    : lead ? `You're the party leader. Pick the course, then press Start when everyone's in.${bots ? ` ${bots} ${bots === 1 ? 'bot' : 'bots'} will fill the grid.` : ''}`
     : `Waiting for ${leaderName || 'the party leader'} to start the race. Bots are ${botsOn ? 'on' : 'off'}.`;
   const ctl = c.querySelector('#mpq-lead');
   ctl.hidden = !(L && lead && waiting);
   const cb = c.querySelector('#mpq-bots'); if (cb) cb.checked = botsOn;
+  const lk = c.querySelector('#mpq-lock'); if (lk && document.activeElement !== lk) lk.checked = !!(L && L.locked);
+  const cs = c.querySelector('#mpq-cs'); if (cs && L && document.activeElement !== cs && cs.value !== (L.course || 'random')) cs.value = L.course || 'random';
   const st = c.querySelector('#mpq-start');
   if (st) { st.disabled = !botsOn && players.length < 2; st.title = st.disabled ? 'Turn bots on or wait for another player' : ''; }
   const list = c.querySelector('#mpq-list');
@@ -3621,6 +3728,73 @@ function renderMpQueue() {
     li.append(rk, nm, tm); list.append(li);
   });
 }
+async function renderPartyList() {
+  const list = $('#mpj-list'), sub = $('#mpj-sub');
+  if (!list || !net.db) return;
+  let docs = [];
+  try { await mpSyncClock(); docs = (await net.db.collection('lobbies').where('created', '>', srvNow() - 3 * 3600000).orderBy('created', 'desc').limit(40).get()).docs; }
+  catch (e) { sub.textContent = 'Could not load parties. Check your connection.'; return; }
+  if (!$('#mpj-list')) return;
+  const now = srvNow(), rows = [];
+  for (const d of docs) {
+    const L = d.data(); if (!L || L.next) continue;
+    const live = Object.entries(L.players || {}).filter(([uid, p]) => p && now - (p.seen || 0) < MP_STALE);
+    const racing = L.startAt != null;
+    if (racing ? now - L.startAt > 10 * 60000 : !live.length) continue;
+    rows.push({ id: d.id, L, live, racing });
+  }
+  sub.textContent = rows.length ? rows.length + (rows.length === 1 ? ' party' : ' parties') + ' right now. Locked parties need a password.' : 'No parties right now. Create one and invite your friends!';
+  list.textContent = '';
+  rows.forEach(({ id, L, live, racing }) => {
+    const li = document.createElement('li'); li.className = 'mpj-row';
+    const leader = mpLeader(Object.assign({}, L, { players: Object.fromEntries(live) })) || L.host, lp = (L.players || {})[leader] || {};
+    const icon = carIcon({ id: 'drv:' + leader, uid: leader, me: leader === net.uid, color: cleanColor(lp.color) });
+    const nm = document.createElement('span'); nm.className = 'nm';
+    if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
+    const col = document.createElement('span'); col.className = 'mpj-col';
+    const t = document.createElement('b'); t.textContent = (L.name || (cleanName(lp.name) || 'Driver') + "'s party");
+    const meta = document.createElement('small');
+    const pings = live.map(([, p]) => p && p.ping).filter(x => typeof x === 'number'), avg = pings.length ? Math.round(pings.reduce((a, b) => a + b, 0) / pings.length) : null;
+    meta.textContent = [live.length + '/' + MP_MAX + ' players', L.bots !== false ? 'bots on' : 'no bots', avg != null ? avg + ' ms' : ''].filter(Boolean).join(' · ');
+    const cr = document.createElement('small'); cr.className = 'mpj-course'; cr.textContent = '🏁 ' + courseLabel(L);
+    col.append(t, meta, cr); nm.append(col);
+    const side = document.createElement('span'); side.className = 'mpj-side';
+    const tag = document.createElement('span'); tag.className = 'mpj-tag' + (racing ? ' racing' : '') + (L.locked ? ' locked' : '');
+    tag.textContent = (L.locked ? '🔒 Locked' : '🔓 Open') + (racing ? ' · Racing' : '');
+    const btn = document.createElement('button'); btn.className = 'btn go mpj-btn'; btn.type = 'button';
+    btn.textContent = racing ? 'Spectate' : 'Join';
+    side.append(tag, btn);
+    li.append(nm, side);
+    const pwWrap = document.createElement('div'); pwWrap.className = 'mpj-pw'; pwWrap.hidden = true;
+    pwWrap.innerHTML = '<input class="field" type="password" maxlength="24" placeholder="Password" autocomplete="off"><button class="btn go" type="button">Join</button><span class="err"></span>';
+    li.append(pwWrap);
+    const go = async (pw) => {
+      btn.disabled = true;
+      const r = await mpJoinParty(id, pw);
+      btn.disabled = false;
+      if (r === 'password') { pwWrap.hidden = false; pwWrap.querySelector('.err').textContent = pw ? 'Wrong password' : ''; pwWrap.querySelector('input').focus(); }
+      else if (r === 'full') toast('That party is full');
+      else if (r === 'gone') { toast('That party has closed'); renderPartyList(); }
+    };
+    btn.onclick = () => { if (L.locked && !(L.members || []).includes(net.uid)) { pwWrap.hidden = !pwWrap.hidden; if (!pwWrap.hidden) pwWrap.querySelector('input').focus(); } else go(null); };
+    pwWrap.querySelector('button').onclick = () => go(pwWrap.querySelector('input').value);
+    pwWrap.querySelector('input').onkeydown = (e) => { if (e.key === 'Enter') go(e.target.value); };
+    list.append(li);
+  });
+}
+function mpSetParty(upd) {
+  if (!mp.id || !mp.lobby || mpLeader(mp.lobby) !== net.uid || mp.lobby.startAt != null) return;
+  Object.assign(mp.lobby, upd); renderMpQueue();
+  net.db.doc('lobbies/' + mp.id).update(upd).catch(() => toast('Could not change the party'));
+}
+async function mpSetLock(locked, password) {
+  if (locked && !password) { toast('Type a password to lock the party'); renderMpQueue(); return; }
+  const h = locked ? await pwHash(password) : null;
+  mp.pw = h;
+  mpSetParty({ locked, pw: h });
+  toast(locked ? 'Party locked 🔒' : 'Party open to everyone 🔓');
+}
+function mpSetCourse(course) { mpSetParty({ course, key: course === 'random' ? randomCourseKey() : course }); }
 function mpSetBots(on) {
   if (!mp.id || !mp.lobby || mpLeader(mp.lobby) !== net.uid) return;
   mp.lobby.bots = on; renderMpQueue();
@@ -3632,7 +3806,6 @@ function mpPressStart() {
   if (L.bots === false && mpLive(L).length < 2) return;
   const startAt = Math.round(srvNow() + 5000);
   net.db.doc('lobbies/' + mp.id).update({ startAt }).catch(() => toast('Could not start the race'));
-  net.db.doc('lobbies/open').get().then(o => { if (o.exists && o.data().id === mp.id) net.db.doc('lobbies/open').set({ id: null, live: mp.id }); }).catch(() => {});
 }
 
 // ---- spectating: watch a race in progress while queued for the next one, or other racers after you finish ----
@@ -3640,6 +3813,7 @@ async function mpTrySpectate(liveId) {
   try {
     const s = await net.db.doc('lobbies/' + liveId).get(), L = s.exists ? s.data() : null;
     if (!L || L.startAt == null || mp.phase !== 'queue') return;
+    mp.specLobby = L;
     const goAt = L.startAt + MP_LOAD, now = srvNow();
     if (now < L.startAt || now > goAt + 10 * 60000) return;   // not started yet, or long over
     mp.spec = { id: liveId, goAt };
@@ -3905,7 +4079,6 @@ function mpExit(again) {
   mpReset();
   closeModal();
   loadRace(todayKey);
-  if (again) setTimeout(() => { const go = () => (state === 'title' ? mpQueue() : setTimeout(go, 300)); go(); }, 300);
 }
 function renderMpRankings(list, sub) {
   const rows = [];
@@ -4802,7 +4975,7 @@ function toast(msg) {
 let boardTab = 'today';
 function renderModalBoard() { if (boardTab === 'mp') renderMpRankings($('#mb-list'), $('#mb-sub')); else if (boardTab === 'rank') renderRankings($('#mb-list'), $('#mb-sub')); else renderBoard($('#mb-list'), $('#mb-sub')); }
 let modalKind = null, pendingRace = false, askedName = false;
-function closeModal() { const k = modalKind; $('#modal').hidden = true; modalKind = null; clearInterval(modalTimer); if (k === 'mp' && !mp.spec) mpCancel(); else if (k === 'mpres' && mp.active) mpWatchStart(); }
+function closeModal() { const k = modalKind; $('#modal').hidden = true; modalKind = null; clearInterval(modalTimer); if ((k === 'mp' || k === 'mpwait') && !mp.spec) mpCancel(); else if (k === 'mpres' && mp.active) mpWatchStart(); }
 let modalTimer = 0;
 const previewCache = {};
 function unlockIn(k) {
@@ -4945,19 +5118,73 @@ function openModal(kind) {
     pendingRace = false;
     $('#modal').hidden = false;
     return;
-  } else if (kind === 'mp') {
+  } else if (kind === 'mp' && mp.phase === 'idle') {
     c.innerHTML = `<h2>Multiplayer</h2>
-      <p class="sub">Race other players on a random route. The first player in the lobby is the party leader and starts the race. Only 1st place scores: +1 point.</p>
+      <p class="sub">Race friends in a party. The party leader picks the course and starts each race. Only 1st place scores: +1 point.</p>
+      <div class="mp-menu"><button class="mp-big go" type="button" id="mpm-create"><b>➕ Create party</b><span>Pick a course, invite friends, lock it with a password</span></button>
+      <button class="mp-big" type="button" id="mpm-join"><b>🎟️ Join party</b><span>See every open party and jump in</span></button></div>`;
+    $('#mpm-create').onclick = () => openModal('mpcreate');
+    $('#mpm-join').onclick = () => openModal('mpjoin');
+    $('#modal').hidden = false;
+    return;
+  } else if (kind === 'mpcreate') {
+    c.innerHTML = `<h2>Create party</h2>
+      <form id="mpc-form" class="mpc" novalidate>
+        <label class="hl" for="mpc-course">Course</label>
+        <select class="field mpc-sel" id="mpc-course">${courseOptions('random')}</select>
+        <label class="mpq-check"><input type="checkbox" id="mpc-locked" checked><span>Locked</span><small>only people with the password can join</small></label>
+        <input class="field" id="mpc-pw" type="text" maxlength="24" placeholder="Party password" autocomplete="off" spellcheck="false">
+        <label class="mpq-check"><input type="checkbox" id="mpc-bots" checked><span>Bots</span><small>fill empty spots up to ${MP_FIELD} cars</small></label>
+        <p class="err" id="mpc-err" role="alert"></p>
+        <div class="row2"><button class="btn go" type="submit" id="mpc-go">Create party</button><button class="btn" type="button" id="mpc-back">Back</button></div>
+      </form>`;
+    const lk = $('#mpc-locked'), pw = $('#mpc-pw');
+    lk.onchange = () => { pw.hidden = !lk.checked; };
+    $('#mpc-back').onclick = () => openModal('mp');
+    $('#mpc-form').onsubmit = async (e) => {
+      e.preventDefault();
+      if (lk.checked && !pw.value.trim()) { $('#mpc-err').textContent = 'Type a password, or untick Locked to let anyone join.'; pw.focus(); return; }
+      $('#mpc-go').disabled = true;
+      await mpCreateParty({ course: $('#mpc-course').value, locked: lk.checked, password: pw.value.trim(), bots: $('#mpc-bots').checked });
+    };
+    $('#modal').hidden = false;
+    setTimeout(() => pw.focus(), 0);
+    return;
+  } else if (kind === 'mpjoin') {
+    c.innerHTML = `<h2>Join party</h2><p class="sub" id="mpj-sub">Looking for parties…</p><ol class="board mpj" id="mpj-list"></ol>
+      <div class="row2" style="margin-top:12px"><button class="btn" type="button" id="mpj-refresh">Refresh</button><button class="btn" type="button" id="mpj-back">Back</button></div>`;
+    $('#mpj-back').onclick = () => openModal('mp');
+    $('#mpj-refresh').onclick = () => renderPartyList();
+    renderPartyList();
+    clearInterval(modalTimer); modalTimer = setInterval(() => { if (!document.querySelector('#mpj-list input:focus')) renderPartyList(); }, 4000);
+    $('#modal').hidden = false;
+    return;
+  } else if (kind === 'mpwait') {
+    c.innerHTML = `<h2>Back to the party</h2><p class="sub">Waiting for the party leader to open the next round…</p>
+      <button class="btn" type="button" id="mpw-leave" style="width:100%">Leave party</button>`;
+    $('#mpw-leave').onclick = () => { mpReset(); closeModal(); };
+    $('#modal').hidden = false;
+    return;
+  } else if (kind === 'mp') {
+    c.innerHTML = `<h2 id="mpq-party">Party</h2>
+      <p class="mpq-coursebar">🏁 <span id="mpq-course">…</span></p>
       <div class="mpq-clock"><b id="mpq-time">…</b><span id="mpq-unit">racers in the lobby</span></div>
       <p class="note" id="mpq-note"></p>
       <ol class="board" id="mpq-list"></ol>
       <div id="mpq-lead" class="mpq-lead" hidden>
-        <label class="mpq-check"><input type="checkbox" id="mpq-bots" checked><span>Bots</span><small>fill empty spots up to ${MP_FIELD} cars</small></label>
-        <button class="btn go" type="button" id="mpq-start">Start race</button>
+        <label class="hl mpq-full" for="mpq-cs">Course</label>
+        <select class="field mpc-sel mpq-full" id="mpq-cs">${courseOptions(mp.lobby && mp.lobby.course || 'random')}</select>
+        <label class="mpq-check"><input type="checkbox" id="mpq-lock"><span>Locked</span><small>password to join</small></label>
+        <label class="mpq-check"><input type="checkbox" id="mpq-bots" checked><span>Bots</span><small>fill up to ${MP_FIELD} cars</small></label>
+        <div class="mpq-full mpq-pwrow" id="mpq-pwrow" hidden><input class="field" id="mpq-pw" type="text" maxlength="24" placeholder="New password" autocomplete="off" spellcheck="false"><button class="btn" type="button" id="mpq-pwset">Lock</button></div>
+        <button class="btn go mpq-full" type="button" id="mpq-start">Start race</button>
       </div>
-      <button class="btn" type="button" id="mpq-cancel" style="margin-top:12px;width:100%">Leave queue</button>`;
+      <button class="btn" type="button" id="mpq-cancel" style="margin-top:12px;width:100%">Leave party</button>`;
     $('#mpq-cancel').onclick = () => { if (mp.spec) mpExit(false); else closeModal(); };
     $('#mpq-bots').onchange = (e) => mpSetBots(e.target.checked);
+    $('#mpq-cs').onchange = (e) => mpSetCourse(e.target.value);
+    $('#mpq-lock').onchange = (e) => { if (e.target.checked) { $('#mpq-pwrow').hidden = false; e.target.checked = false; $('#mpq-pw').focus(); } else mpSetLock(false); };
+    $('#mpq-pwset').onclick = () => { const v = $('#mpq-pw').value.trim(); mpSetLock(true, v); if (v) $('#mpq-pwrow').hidden = true; };
     $('#mpq-start').onclick = () => mpPressStart();
     renderMpQueue();
     $('#modal').hidden = false;
@@ -4984,9 +5211,9 @@ function openModal(kind) {
       <p class="eyebrow" id="mpr-place" style="font-size:13px"></p>
       <ol class="board" id="mpr-list" style="margin-top:10px"></ol>
       <button class="btn dark" type="button" id="mpr-watch" style="margin-top:14px;width:100%">Spectate other racers <kbd>←</kbd><kbd>→</kbd></button>
-      <div class="row2" style="margin-top:8px"><button class="btn go" type="button" id="mpr-again">Queue again</button><button class="btn" type="button" id="mpr-exit">Back to daily race</button></div>`;
+      <div class="row2" style="margin-top:8px"><button class="btn go" type="button" id="mpr-again">Back to party</button><button class="btn" type="button" id="mpr-exit">Leave party</button></div>`;
     $('#mpr-watch').onclick = () => closeModal();
-    $('#mpr-again').onclick = () => mpExit(true);
+    $('#mpr-again').onclick = () => mpNextRound();
     $('#mpr-exit').onclick = () => mpExit(false);
     renderMpResults();
     $('#modal').hidden = false;
@@ -5160,12 +5387,12 @@ $('#b-race').onclick = () => {
   if (net.ready && net.writable && !onlineName() && !askedName) { askedName = true; pendingRace = true; ensureAudio(); openModal('account'); return; }
   restart();
 };
-$('#b-mp').onclick = () => { ensureAudio(); mpQueue(); };
+$('#b-mp').onclick = () => { ensureAudio(); mpOpen(); };
 document.querySelectorAll('#g-tabs button').forEach(b => b.onclick = () => setGarageTab(b.dataset.gtab));
 $('#wb-prev').onclick = () => mpWatchStep(-1);
 $('#wb-next').onclick = () => mpWatchStep(1);
 $('#wb-res').onclick = () => { mp.watch = false; mpWatchBar(); openModal('mpres'); };
-$('#wb-lobby').onclick = () => openModal('mp');
+$('#wb-lobby').onclick = () => { if (mp.id) openModal('mp'); else toast('You join the next round when this race ends'); };
 $('#wb-leave').onclick = () => mpExit(false);
 $('#m-retry').onclick = () => restart();
 $('#m-resume').onclick = () => closeMenu();
