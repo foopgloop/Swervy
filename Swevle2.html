@@ -299,6 +299,15 @@ body.touch #flip .k-touch{display:inline}
 @keyframes dogeHop{0%{transform:rotate(14deg) translateY(0)}40%{transform:rotate(4deg) translateY(-26px)}100%{transform:rotate(14deg) translateY(0)}}
 @keyframes dogeSpin{to{transform:rotate(734deg) scale(.2);opacity:0}}
 .doge-say{position:absolute;left:150px;top:40px;white-space:nowrap;font:800 26px/1 "Comic Sans MS","Comic Neue",cursive;color:#ff2fb3;text-shadow:0 2px 0 #fff,0 0 12px #fff;transform:rotate(-8deg)}
+.cheems-spot,.fesse{position:relative}
+/* a small Cheems hiding behind Settings (and then behind "fesse"), peeking out now and then until you find him */
+.cheems-hint{position:absolute;right:-6px;bottom:60%;width:34px;height:34px;pointer-events:none;z-index:-1;transform-origin:bottom center;animation:cheemsPeek 4.5s ease-in-out infinite}
+.cheems-hint img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+.fesse{isolation:isolate}
+.fesse .cheems-hint{right:-30px;bottom:-4px;width:28px;height:28px;pointer-events:auto;cursor:pointer;animation:cheemsPeekSide 3.2s ease-in-out infinite}
+@keyframes cheemsPeekSide{0%,50%,100%{transform:translateX(-26px) rotate(0);opacity:0}60%{transform:translateX(0) rotate(-10deg);opacity:1}70%{transform:translateX(0) rotate(8deg);opacity:1}82%{transform:translateX(0) rotate(-4deg);opacity:1}92%{transform:translateX(-26px);opacity:0}}
+@keyframes cheemsPeek{0%,55%,100%{transform:translate(-4px,26px) rotate(0)}62%{transform:translate(4px,0) rotate(10deg)}72%{transform:translate(4px,-2px) rotate(-6deg)}80%{transform:translate(4px,0) rotate(8deg)}90%{transform:translate(-4px,26px) rotate(0)}}
+@media (prefers-reduced-motion: reduce){.cheems-hint{animation:none;transform:translate(4px,4px)}}
 .fesse{border:0;background:none;padding:0;font:inherit;color:inherit;text-decoration:underline dotted;cursor:pointer;display:inline-block}
 .fesse.wig{animation:fesseWig .4s}
 @keyframes fesseWig{25%{transform:rotate(-12deg) scale(1.2)}75%{transform:rotate(12deg) scale(1.2)}}
@@ -516,7 +525,7 @@ body.touch .key-legend{display:none}
     <div class="key"><span><kbd>G</kbd></span>Ghosts</div>
     <div class="key"><span><kbd>L</kbd></span>Lights</div>
   </div>
-  <nav class="foot"><button class="link" data-open="ach">🏆 Achievements</button><button class="link" id="b-freecam">🎥 Freecam</button><button class="link" data-open="howto">How to play</button><button class="link" data-open="settings">Settings</button></nav>
+  <nav class="foot"><button class="link" data-open="ach">🏆 Achievements</button><button class="link" id="b-freecam">🎥 Freecam</button><button class="link" data-open="howto">How to play</button><button class="link cheems-spot" data-open="settings" id="t-settings">Settings</button></nav>
 </section>
 
 <section id="finish" class="panel card" hidden aria-labelledby="f-time">
@@ -541,6 +550,7 @@ body.touch .key-legend{display:none}
     <h2>Menu</h2>
     <button class="btn go" id="m-retry">Retry <kbd>F</kbd></button>
     <button class="btn" id="m-resume">Resume <kbd>Esc</kbd></button>
+    <button class="btn" id="m-leave" hidden>Leave party</button>
     <button class="btn" data-open="vehicle">Customize</button>
     <button class="btn" data-open="settings">Settings</button>
     <button class="btn" id="m-info">Route info</button>
@@ -3262,7 +3272,7 @@ function buildCosmetics(cos, ghost) {
     case 'shiba': {
       // a standing Shiba Inu, like a figurine: slim red-sesame body on long legs, cream "urajiro" on the chest,
       // belly, legs and face, fox-like muzzle, upright triangle ears, and the curled tail sitting over the back
-      const o = L(0xe08a3c), cr = L(0xf8ecd8), bk = L(0x1a1d22), pk = L(0xd9707e);
+      const o = L(0xe08a3c), cr = L(0xf8ecd8), bk = L(0x1a1d22);
       const z0 = -0.3, y0 = RY, legY = y0 + 0.3;
       put(S(0.2), o, 0, legY + 0.14, z0, 0, 0, 0, 0.72, 0.68, 1.55);                  // body
       put(S(0.18), cr, 0, legY + 0.08, z0 + 0.02, 0, 0, 0, 0.62, 0.5, 1.3);           // belly
@@ -3282,14 +3292,15 @@ function buildCosmetics(cos, ghost) {
       // head
       const hz = z0 + 0.39, hy = legY + 0.44;
       put(S(0.13), o, 0, hy, hz, 0, 0, 0, 1.08, 0.95, 1);                             // skull
-      put(S(0.1), cr, 0.055, hy - 0.035, hz + 0.055, 0, 0, 0, 0.85, 0.75, 0.9);        // cream cheeks
-      put(S(0.1), cr, -0.055, hy - 0.035, hz + 0.055, 0, 0, 0, 0.85, 0.75, 0.9);
+      put(S(0.08), cr, 0.05, hy - 0.045, hz + 0.06, 0, 0, 0, 0.85, 0.7, 0.9);         // cream cheeks
+      put(S(0.08), cr, -0.05, hy - 0.045, hz + 0.06, 0, 0, 0, 0.85, 0.7, 0.9);
       put(S(0.06), cr, 0, hy - 0.03, hz + 0.13, 0, 0, 0, 0.95, 0.72, 1.35);            // muzzle
       put(S(0.024), bk, 0, hy - 0.005, hz + 0.21);                                     // nose
-      put(B(0.07, 0.008, 0.01), bk, 0, hy - 0.06, hz + 0.16);                           // smile
-      put(B(0.03, 0.008, 0.02), pk, 0.012, hy - 0.068, hz + 0.155);                     // tongue tip
-      put(S(0.018), bk, 0.048, hy + 0.03, hz + 0.1, 0, 0, 0, 1, 0.8, 0.6); put(S(0.018), bk, -0.048, hy + 0.03, hz + 0.1, 0, 0, 0, 1, 0.8, 0.6);   // eyes
-      put(S(0.014), cr, 0.05, hy + 0.068, hz + 0.09); put(S(0.014), cr, -0.05, hy + 0.068, hz + 0.09);   // eyebrow dots
+      put(B(0.05, 0.007, 0.01), bk, 0, hy - 0.058, hz + 0.165);                         // mouth line
+      for (const sx of [-1, 1]) {   // friendly almond eyes sitting on the face, with a tiny catch-light
+        put(S(0.022), bk, sx * 0.05, hy + 0.028, hz + 0.118, 0, sx * 0.35, 0, 1.15, 0.75, 0.5);
+        put(S(0.006), L(0xffffff), sx * 0.046, hy + 0.036, hz + 0.128);
+      }
       for (const x of [0.065, -0.065]) {
         put(K(0.05, 0.12, 3), o, x, hy + 0.13, hz - 0.01, -0.1, Math.PI, x > 0 ? -0.22 : 0.22);          // ears
         put(K(0.03, 0.08, 3), cr, x * 0.97, hy + 0.12, hz + 0.008, -0.1, Math.PI, x > 0 ? -0.22 : 0.22);
@@ -3472,7 +3483,7 @@ const COAST = { throttle: 0, brake: 1, steer: 0, hand: false };
 function simStep() {
   const inp = state === 'racing' ? inputNow() : state === 'finished' ? COAST : NO_INPUT;
   stepCar(car, inp, DT, true);
-  if (mp.active && (state === 'racing' || state === 'finished')) mpCollide(car);
+  if (mp.active && !mp.noCollide && (state === 'racing' || state === 'finished')) mpCollide(car);
   if (T.secret) secretStep();
   if (state === 'racing' || state === 'finished') clock += DT;
   if (state !== 'racing') return;
@@ -3852,7 +3863,7 @@ async function mpCreateParty(opt) {
     const ref = net.db.collection('lobbies').doc();
     const locked = !!opt.locked && !!opt.password;
     const hash = locked ? await pwHash(opt.password) : null;
-    await ref.set({ name: onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: opt.bots !== false, course: opt.course || 'random',
+    await ref.set({ name: onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: opt.bots !== false, collide: opt.collide !== false, course: opt.course || 'random',
       key: opt.course && opt.course !== 'random' ? opt.course : randomCourseKey(), host: net.uid, locked, pw: hash, members: [net.uid], players: { [net.uid]: mpMe() } });
     mp.pw = hash;
     await mpEnterLobby(ref.id);
@@ -3900,7 +3911,12 @@ function mpSpectateParty(id) {
 }
 async function mpEnterLobby(id) {
   mp.phase = 'queue'; mp.id = id; mp.lobby = null;
-  mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => { if (s.exists) { mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue(); } }));
+  mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => {
+    if (!s.exists) return;
+    mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue();
+    const ra = mp.lobby.restartAt;   // the leader restarted the race for everyone
+    if (mp.active && typeof ra === 'number' && ra > (mp.startedAt || 0) && ra !== mp.restartSeen) mpDoRestart(ra);
+  }));
   openModal('mp');
   clearInterval(mp.timer);
   let beat = 0;
@@ -3935,7 +3951,7 @@ async function mpNextRound() {
       const lead = (L.players || {})[L.host] ? L.host : all.length ? all[0][0] : net.uid;
       if (lead !== net.uid) return '';
       const nref = net.db.collection('lobbies').doc();
-      tx.set(nref, { name: L.name || onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: L.bots !== false, course: L.course || 'random',
+      tx.set(nref, { name: L.name || onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: L.bots !== false, collide: L.collide !== false, course: L.course || 'random',
         key: L.course && L.course !== 'random' ? L.course : randomCourseKey(), host: net.uid, locked: !!L.locked, pw: L.pw || null,
         members: [...new Set([...(L.members || []), ...Object.keys(L.players || {})])], players: { [net.uid]: mpMe() } });
       tx.update(ref, { next: nref.id });
@@ -4003,7 +4019,7 @@ function renderMpQueue() {
   const waiting = !L || L.startAt == null;
   const hd = c.querySelector('#mpq-party');
   if (hd) hd.textContent = L ? (L.name || 'Party') + (L.locked ? ' 🔒' : ' 🔓') : 'Party';
-  const cl = c.querySelector('#mpq-course'); if (cl) cl.textContent = L ? courseLabel(L) : '…';
+  const cl = c.querySelector('#mpq-course'); if (cl) cl.textContent = L ? courseLabel(L) + (L.collide === false ? ' · 👻 collisions off' : '') : '…';
   const left = waiting ? null : Math.max(0, Math.ceil((L.startAt - srvNow()) / 1000));
   const players = L ? mpLive(L) : [];
   const leader = L ? mpLeader(L) : null, lead = leader === net.uid, botsOn = !L || L.bots !== false;
@@ -4221,6 +4237,7 @@ async function mpStart() {
   mpStopSpectate();
   mp.phase = 'loading'; mp.active = true; mp.watch = false;
   const L = mp.lobby, goAt = mp.goAt = L.startAt + MP_LOAD;
+  mp.startedAt = srvNow(); mp.restartSeen = L.restartAt || null; mp.noCollide = L.collide === false;
   mp.players = Object.entries(L.players || {}).filter(([uid, p]) => uid === net.uid || (p && L.startAt - (p.seen || 0) < MP_STALE)).map(([uid, p]) => ({ uid, name: cleanName(p && p.name) || 'Driver', color: cleanColor(p && p.color) }));
   closeModal(); closeMenu(); hideCards();
   $('#title').hidden = false; $('#t-eyebrow').textContent = 'Multiplayer · ' + mp.players.length + (mp.players.length === 1 ? ' racer' : ' racers');
@@ -4252,7 +4269,7 @@ async function mpStart() {
   $('#t-name').textContent = T.name;
   const wait = () => {
     if (!mp.active) return;
-    if (srvNow() >= goAt - 2400) { mp.phase = 'race'; mp.starting = true; restart(); mp.starting = false; mpGrid(car); mpPublishLoop(); return; }
+    if (srvNow() >= goAt - 2400) { mp.phase = 'race'; mp.starting = true; restart(); mp.starting = false; if (!mp.noCollide) mpGrid(car); mpPublishLoop(); return; }
     $('#t-eyebrow').textContent = 'Multiplayer · starting in ' + Math.ceil((goAt - 2400 - srvNow()) / 1000);
     setTimeout(wait, 200);
   };
@@ -4297,7 +4314,7 @@ function mpRenderRemote() {
     const g = mp.ghosts.get(uid); if (!g || !r.s) continue;
     // pick up cosmetics they change mid-session (e.g. Moe unlocked after the race was set up)
     const dd = net.drivers.get(uid), cos = cleanCos(dd && dd.cos), sig = cosSig(cos);
-    if (g.cosSig !== sig) { g.cosSig = sig; applyCosmetics(g.mesh, cos, false); }
+    if (g.cosSig !== sig) { g.cosSig = sig; applyCosmetics(g.mesh, cos, !!g.see); }
     const s = r.s, dt = Math.min(0.5, (now - r.at) / 1000), k = Math.min(1, (now - (r.last || now)) / 1000 * 12 + 0.05);
     r.last = now;
     const tx = s.x + (s.vx || 0) * dt, ty = s.y + (s.vy || 0) * dt * 0.5, tz = s.z + (s.vz || 0) * dt, th = s.h + (s.wy || 0) * dt;
@@ -4352,6 +4369,38 @@ function mpStandings() {
     rows.push({ name: p.name, uid: p.uid, me, t: me ? finishTime : c ? c.done : null, icon: { id: 'drv:' + p.uid, uid: p.uid, me, color: p.color } });
   });
   return rows.sort((a, b) => (a.t == null) - (b.t == null) || a.t - b.t);
+}
+// the party leader can restart the race for everyone: a new start time goes on the lobby and every client restarts to it
+// during a race the lobby's "seen" times go stale, so the leader is the host if they're racing, else the first racer by id
+function mpRaceLeader() {
+  const L = mp.lobby || {}, ids = mp.players.map(p => p.uid);
+  return ids.includes(L.host) ? L.host : ids.slice().sort()[0] || null;
+}
+const mpIsLeader = () => !!(mp.active && mp.lobby && mpRaceLeader() === net.uid);
+function mpAskRestart() {
+  if (!mp.active) return;
+  if (!mpIsLeader()) { toast('Only the party leader can restart'); return; }
+  openModal('mprestart');
+}
+function mpRestartAll() {
+  if (!mpIsLeader()) return;
+  const at = Math.round(srvNow() + 3500);
+  mp.lobby.restartAt = at;
+  net.db.doc('lobbies/' + mp.id).update({ restartAt: at }).catch(() => toast('Could not restart the party'));
+  mpDoRestart(at);
+}
+function mpDoRestart(at) {
+  if (!mp.active || mp.restartSeen === at) return;
+  mp.restartSeen = at;
+  closeModal(); closeMenu();
+  mp.watch = false; mp.result = null; mpWatchBar();
+  mp.cars.forEach(c => { c.done = null; });
+  net.db.doc('lobbies/' + mp.id + '/cars/' + net.uid).set({ done: null }, { merge: true }).catch(() => {});
+  mp.goAt = at; mp.phase = 'race';
+  mp.starting = true; restart(); mp.starting = false;
+  if (!mp.noCollide) mpGrid(car);
+  mpPublishLoop();
+  toast('🔄 The party leader restarted the race');
 }
 function mpFinish() {
   clearInterval(mp.pubT);
@@ -4758,7 +4807,17 @@ function secretExit() { secret.active = false; closeModal(); loadRace(todayKey);
 // Cheems: tap "fesse" in Settings. He rises from the bottom corner, chats, and on the 5th tap gets bonked
 const CHEEMS_LINES = ['hemlo?', 'am cheems', 'fesse is frend', 'u want burgir?'];
 let cheemsTaps = 0, cheemsTimer = 0;
+function cheemsHints() {
+  const found = store.get('ds:cheemsFound', false);
+  for (const host of [$('#t-settings'), $('#fesse')]) {
+    if (!host) continue;
+    let h = host.querySelector('.cheems-hint');
+    if (found) { if (h) h.remove(); continue; }
+    if (!h) { h = document.createElement('span'); h.className = 'cheems-hint'; h.setAttribute('aria-hidden', 'true'); h.innerHTML = `<img src="${CHEEMS_URL}" alt="" crossorigin="anonymous">`; host.append(h); }
+  }
+}
 function cheemsTap() {
+  const hint = $('#fesse .cheems-hint'); if (hint) hint.remove();   // he comes out from behind the name
   const f = $('#fesse'); if (f) { f.classList.remove('wig'); void f.offsetWidth; f.classList.add('wig'); }
   clearTimeout(cheemsTimer); cheemsTimer = setTimeout(() => { cheemsTaps = 0; const el = $('#cheems-peek'); if (el) { el.classList.remove('in', 'up'); setTimeout(() => el.remove(), 600); } }, 6000);
   let el = $('#cheems-peek');
@@ -4774,7 +4833,7 @@ function cheemsTap() {
   el.querySelector('.say').textContent = 'BONK!';
   el.classList.add('bonk'); document.body.classList.add('bonk-shake'); hornSound(); comicText('BONK');
   setTimeout(() => document.body.classList.remove('bonk-shake'), 450);
-  store.set('ds:cheemsFound', true); confetti();
+  store.set('ds:cheemsFound', true); confetti(); cheemsHints();
   setTimeout(() => { el.remove(); openModal('cheems'); }, 1400);
 }
 
@@ -5080,10 +5139,11 @@ function setupGhosts() {
   if (mp.active || mp.spec) {
     mp.ghosts = new Map();
     for (const s of mpGhostList()) {
-      const mesh = makeCarMesh(s.color, !s.remote, s.tex, s.cos), label = labelSprite(s.label, s.color);
+      const see = !s.remote || mp.noCollide;   // collisions off: other players are see-through ghosts too
+      const mesh = makeCarMesh(s.color, see, s.tex, s.cos), label = labelSprite(s.label, s.color);
       mesh.add(label); scene.add(mesh);
-      if (s.remote) { mesh.visible = false; mesh.castShadow = true; }
-      const g = { mesh, label, frames: s.f, hz: s.hz, fade: -1, remote: !!s.remote, name: s.label };
+      if (s.remote) { mesh.visible = false; mesh.castShadow = !mp.noCollide; }
+      const g = { mesh, label, frames: s.f, hz: s.hz, fade: -1, remote: !!s.remote, name: s.label, see };
       ghostObjs.push(g); if (s.remote) mp.ghosts.set(s.key, g);
     }
     return;
@@ -5639,6 +5699,10 @@ function hideCards() { $('#title').hidden = true; $('#finish').hidden = true; }
 function openMenu() {
   if (!(state === 'racing' || state === 'countdown' || state === 'finished')) return;
   paused = true; renderBoard($('#m-board'), $('#m-board-sub')); $('#menu').hidden = false;
+  // in a party: a way out, and only the leader can restart (for everyone)
+  $('#m-leave').hidden = !mp.active;
+  $('#m-retry').hidden = mp.active && !mpIsLeader();
+  $('#m-retry').innerHTML = mp.active ? 'Restart everyone <kbd>F</kbd>' : 'Retry <kbd>F</kbd>';
   Object.keys(keys).forEach(k => keys[k] = false);
   setTimeout(() => $('#m-resume').focus(), 0);
 }
@@ -5660,6 +5724,7 @@ function renderTitle() {
   $('#t-date').textContent = sec ? 'Secret' : prettyDate(raceKey);
   $('#t-len').textContent = (T.length / 1000).toFixed(2) + ' km';
   const runs = sec ? [] : getRuns(raceKey), secBest = sec ? store.get(sec.best, null) : null;
+  cheemsHints();
   $('#t-best').textContent = sec ? (secBest != null ? fmt(secBest) : '—') : runs.length ? fmt(runs[0].t) : '—';
   const bar = $('#t-strip'); bar.innerHTML = '';
   for (const r of T.runs) { const i = document.createElement('i'); i.className = 's-' + SURF_NAMES[r.s]; i.style.flexGrow = r.to - r.from + 1; bar.append(i); }
@@ -5937,6 +6002,7 @@ function openModal(kind) {
       <p class="sub">Resolution adjusts itself to keep the game smooth, and shadows switch off if your device still struggles. Low graphics starts without shadows, at lower resolution, with less grass. The physics are the same at every setting.</p>
       <p class="credits">Made by nowdogs and <button type="button" class="fesse" id="fesse">fesse</button></p>`;
     $('#fesse').onclick = () => cheemsTap();
+    cheemsHints();
     c.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
       const key = b.parentElement.dataset.key, raw = b.dataset.v;
       const v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
@@ -6027,6 +6093,7 @@ function openModal(kind) {
         <label class="mpq-check"><input type="checkbox" id="mpc-locked" checked><span>Locked</span><small>only people with the password can join</small></label>
         <input class="field" id="mpc-pw" type="text" maxlength="24" placeholder="Party password" autocomplete="off" spellcheck="false">
         <label class="mpq-check"><input type="checkbox" id="mpc-bots" checked><span>Bots</span><small>fill empty spots up to ${MP_FIELD} cars</small></label>
+        <label class="mpq-check"><input type="checkbox" id="mpc-collide" checked><span>Player collisions</span><small>off: everyone is a ghost and starts on the same spot</small></label>
         <p class="err" id="mpc-err" role="alert"></p>
         <div class="row2"><button class="btn go" type="submit" id="mpc-go">Create party</button><button class="btn" type="button" id="mpc-back">Back</button></div>
       </form>`;
@@ -6037,7 +6104,7 @@ function openModal(kind) {
       e.preventDefault();
       if (lk.checked && !pw.value.trim()) { $('#mpc-err').textContent = 'Type a password, or untick Locked to let anyone join.'; pw.focus(); return; }
       $('#mpc-go').disabled = true;
-      await mpCreateParty({ course: $('#mpc-course').value, locked: lk.checked, password: pw.value.trim(), bots: $('#mpc-bots').checked });
+      await mpCreateParty({ course: $('#mpc-course').value, locked: lk.checked, password: pw.value.trim(), bots: $('#mpc-bots').checked, collide: $('#mpc-collide').checked });
     };
     $('#modal').hidden = false;
     setTimeout(() => pw.focus(), 0);
@@ -6097,6 +6164,13 @@ function openModal(kind) {
     $('#sec-go').onclick = () => loadSecret();
     $('#sec-later').onclick = () => closeModal();
     $('#modal').hidden = false;
+    return;
+  } else if (kind === 'mprestart') {
+    c.innerHTML = `<h2>Restart?</h2><p class="sub">This restarts the race for everyone in the party, from a fresh countdown.</p>
+      <div class="row2"><button class="btn go" type="button" id="mrs-yes">Yes, restart</button><button class="btn" type="button" id="mrs-no">No</button></div>`;
+    $('#mrs-yes').onclick = () => mpRestartAll();
+    $('#mrs-no').onclick = () => closeModal();
+    $('#modal').hidden = false; setTimeout(() => $('#mrs-no').focus(), 0);
     return;
   } else if (kind === 'cheems') {
     c.innerHTML = `<div class="secret-hero"><img src="${CHEEMS_URL}" alt="" crossorigin="anonymous"></div><h2>Hemlo. U found me.</h2>
@@ -6280,7 +6354,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (!$('#modal').hidden) return;
-  if ((e.code === 'KeyF' || e.code === 'Backspace') && state !== 'loading' && state !== 'title') restart();
+  if ((e.code === 'KeyF' || e.code === 'Backspace') && state !== 'loading' && state !== 'title') { if (mp.active) mpAskRestart(); else restart(); }
   else if (e.code === 'KeyR' && !paused) recover();
   else if (e.code === 'KeyC') { camMode = (camMode + 1) % 3; settings.camera = camMode; saveSettings(); toast(['Chase camera', 'Far camera', 'Hood camera'][camMode]); }
   else if (e.code === 'KeyL') { setLights(!settings.lights); saveSettings(); toast(settings.lights ? 'Lights on' : 'Lights off'); flashCheck(); }
@@ -6311,8 +6385,9 @@ $('#wb-next').onclick = () => mpWatchStep(1);
 $('#wb-res').onclick = () => { mp.watch = false; mpWatchBar(); openModal('mpres'); };
 $('#wb-lobby').onclick = () => { if (mp.id) openModal('mp'); else toast('You join the next round when this race ends'); };
 $('#wb-leave').onclick = () => mpExit(false);
-$('#m-retry').onclick = () => restart();
+$('#m-retry').onclick = () => { if (mp.active) { closeMenu(); mpAskRestart(); } else restart(); };
 $('#m-resume').onclick = () => closeMenu();
+$('#m-leave').onclick = () => { closeMenu(); mpExit(); toast('Left the party'); };
 $('#m-info').onclick = () => showTitle();
 $('#f-retry').onclick = () => restart();
 $('#f-info').onclick = () => showTitle();
