@@ -312,6 +312,8 @@ body.touch #flip .k-touch{display:inline}
 @keyframes bshake{20%{transform:translate(-8px,4px)}40%{transform:translate(7px,-5px)}60%{transform:translate(-5px,3px)}80%{transform:translate(3px,-2px)}}
 .gs-item.locked{opacity:.7;cursor:help;background:repeating-linear-gradient(45deg,var(--paper-2) 0 8px,#e6e3d6 8px 16px)}
 .mb-sec{display:flex;margin-bottom:6px}.mb-sec button{flex:1;font-size:11px;padding:8px 6px}
+.board .dev,.nm .dev{display:inline-flex;width:13px;height:13px;margin-left:6px;vertical-align:-2px;color:var(--muted);opacity:.75;flex:none}
+.nm .dev svg{width:100%;height:100%}
 .secret-hero{display:flex;justify-content:center;margin:-8px 0 6px}
 .secret-hero img{height:120px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
 .btn .coins{font:800 11px/1 var(--mono);letter-spacing:0;color:var(--muted);text-transform:none}
@@ -3410,7 +3412,7 @@ function finishRace() {
   if (mp.active) { lastRunFrames = rec; statsFinish(null, null); mpFinish(); return; }
   if (secret.active) { lastRunFrames = rec; statsFinish(null, null); secretFinish(); return; }
   const runs = getRuns(raceKey), prevBest = runs.length ? runs[0].t : null;
-  const entry = { t: +finishTime.toFixed(3), splits: splits.map(s => +s.toFixed(3)), ts: Date.now(), g: rec };
+  const entry = { t: +finishTime.toFixed(3), splits: splits.map(s => +s.toFixed(3)), ts: Date.now(), g: rec, dev: MY_DEVICE };
   lastRunFrames = rec;
   runs.push(entry);
   saveRuns(raceKey, runs);
@@ -3572,7 +3574,7 @@ async function postTime(key, entry) {
       const prev = cur.best && cur.best[key];
       if (prev && typeof prev.t === 'number' && prev.t <= entry.t) return false;
       const best = Object.assign({}, cur.best || {});
-      best[key] = { t: entry.t, splits: entry.splits, ts: entry.ts };
+      best[key] = { t: entry.t, splits: entry.splits, ts: entry.ts, dev: entry.dev || MY_DEVICE };
       Object.keys(best).sort().slice(0, -40).forEach(k => delete best[k]);
       await ref.set(Object.assign({}, cur, { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT), coins: wallet.coins, owned: wallet.owned.slice(), cos: Object.assign({}, wallet.cos) }));
       if (entry.g && entry.g.length) {
@@ -3599,12 +3601,24 @@ async function fetchGhost(uid) {
   } catch (e) {}
   return null;
 }
+// which kind of device a time was set on, shown as a small icon next to the name on the board
+const MY_DEVICE = matchMedia('(pointer: coarse)').matches ? (Math.min(screen.width, screen.height) >= 700 ? 'tablet' : 'phone') : 'pc';
+const DEV_ICON = {
+  phone: ['Set on a phone', '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="12" r=".9" fill="currentColor"/></svg>'],
+  tablet: ['Set on a tablet', '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="1.5" width="11" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="12.2" r=".9" fill="currentColor"/></svg>'],
+  pc: ['Set on a computer', '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 14h5M8 11v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>']
+};
+function devIcon(dev) {
+  const d = DEV_ICON[dev]; if (!d) return null;
+  const el = document.createElement('i'); el.className = 'dev'; el.title = d[0]; el.setAttribute('aria-label', d[0]); el.innerHTML = d[1];
+  return el;
+}
 function onlineRows() {
   const out = [];
   for (const [uid, d] of net.drivers) {
     const b = d && d.best && d.best[raceKey];
     if (!b || typeof b.t !== 'number' || !(b.t > 5)) continue;
-    out.push({ uid, name: cleanName(d.name) || 'Driver', color: cleanColor(d.color), t: b.t, splits: Array.isArray(b.splits) ? b.splits : null, me: uid === net.uid });
+    out.push({ uid, name: cleanName(d.name) || 'Driver', color: cleanColor(d.color), t: b.t, dev: typeof b.dev === 'string' ? b.dev : null, splits: Array.isArray(b.splits) ? b.splits : null, me: uid === net.uid });
   }
   return out.sort((a, b) => a.t - b.t);
 }
@@ -4856,10 +4870,10 @@ function boardEntries() {
   if (T.ultra) out.push({ id: 'ultra', name: 'Ultra pace', sub: 'fastest line anywhere', t: T.ultra.t, has: true });
   if (T.rival) out.push({ id: 'rival', name: 'Pace car', sub: 'autopilot', t: T.rival.t, has: true });
   if (net.ready && onlineName()) {
-    onlineRows().forEach((r, i) => out.push({ id: r.me ? (runs[0] && runs[0].g ? 'me' : 'drv:' + r.uid) : 'drv:' + r.uid, uid: r.uid, name: r.name, sub: r.me ? 'you' : '', pts: pointsFor(i + 1), t: r.t, me: r.me, has: true, color: r.color }));
+    onlineRows().forEach((r, i) => out.push({ id: r.me ? (runs[0] && runs[0].g ? 'me' : 'drv:' + r.uid) : 'drv:' + r.uid, uid: r.uid, name: r.name, sub: r.me ? 'you' : '', pts: pointsFor(i + 1), t: r.t, me: r.me, has: true, color: r.color, dev: r.dev }));
   } else {
-    if (net.ready) onlineRows().forEach((r, i) => out.push({ id: 'drv:' + r.uid, uid: r.uid, name: r.name, sub: '', pts: pointsFor(i + 1), t: r.t, has: true, color: r.color }));
-    runs.forEach((r, i) => out.push({ id: i === 0 ? 'me' : 'run:' + r.ts, name: (myName() || 'You') + (i === 0 ? ' · best' : ''), sub: new Date(r.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · this device', t: r.t, me: true, has: !!r.g }));
+    if (net.ready) onlineRows().forEach((r, i) => out.push({ id: 'drv:' + r.uid, uid: r.uid, name: r.name, sub: '', pts: pointsFor(i + 1), t: r.t, has: true, color: r.color, dev: r.dev }));
+    runs.forEach((r, i) => out.push({ id: i === 0 ? 'me' : 'run:' + r.ts, name: (myName() || 'You') + (i === 0 ? ' · best' : ''), sub: new Date(r.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · this device', t: r.t, me: true, has: !!r.g, dev: r.dev || MY_DEVICE }));
   }
   return out.sort((a, b) => a.t - b.t);
 }
@@ -5527,6 +5541,7 @@ function renderBoard(list, sub) {
     if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
     if (medal) { const m = document.createElement('i'); m.className = 'medal ' + medal.cls; nm.append(m); }
     nm.append(document.createTextNode(s.name));
+    const di = s.dev && devIcon(s.dev); if (di) nm.append(di);
     if (s.sub) { const sm = document.createElement('small'); sm.textContent = s.sub; nm.append(sm); }
     if (s.pts) { const pt = document.createElement('span'); pt.className = 'pts'; pt.textContent = '+' + s.pts; pt.title = s.pts + ' points for this race'; nm.append(pt); }
     const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = fmt(s.t);
