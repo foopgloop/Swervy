@@ -191,6 +191,18 @@ body.touch #minimap{top:calc(104px + env(safe-area-inset-top,0px));left:16px;rig
 .rp-btns button{flex:1;min-width:64px;min-height:38px;border:1px solid rgba(255,255,255,.25);border-radius:5px;background:rgba(255,255,255,.08);color:#fff;font:800 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 .rp-btns button:hover{background:rgba(255,255,255,.18)}
 .rp-btns .exit{background:var(--go);border-color:var(--go)}
+/* freecam: same glass bars as the replay */
+#freecam{position:fixed;inset:0;z-index:6;pointer-events:none;color:#fff}
+#freecam .fc-rec{color:#35e0ff}
+@media (max-width:640px){#freecam .rp-top{max-width:calc(100vw - 32px);font-size:13px;white-space:normal;text-align:center}}
+#freecam .rp-btns .go-b{background:var(--teal);border-color:var(--teal)}
+.fc-hint{font:700 10.5px/1.4 var(--ui);letter-spacing:.06em;text-transform:uppercase;opacity:.85;text-align:center}
+.fc-hint kbd{background:rgba(20,32,40,.45);color:#fff;border-color:rgba(255,255,255,.7);box-shadow:none;margin:0 1px}
+.fc-hint .t-only,.fc-pad{display:none}
+body.touch .fc-hint .k-only{display:none}body.touch .fc-hint .t-only{display:inline}
+body.touch .fc-pad{display:grid;position:absolute;right:16px;bottom:calc(150px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,56px);gap:8px;pointer-events:auto}
+.fc-pad button{height:56px;border:1.5px solid rgba(255,255,255,.55);border-radius:12px;background:rgba(16,26,33,.45);color:#fff;font:800 18px/1 var(--ui);touch-action:none;-webkit-tap-highlight-color:transparent}
+.fc-pad button.on{background:rgba(53,224,255,.55)}
 /* confetti */
 #confetti{position:fixed;inset:0;z-index:12;pointer-events:none;overflow:hidden}
 #confetti i{position:absolute;top:-20px;width:9px;height:14px;border-radius:2px;animation:fall linear forwards}
@@ -300,6 +312,8 @@ body.touch #flip .k-touch{display:inline}
 @keyframes bshake{20%{transform:translate(-8px,4px)}40%{transform:translate(7px,-5px)}60%{transform:translate(-5px,3px)}80%{transform:translate(3px,-2px)}}
 .gs-item.locked{opacity:.7;cursor:help;background:repeating-linear-gradient(45deg,var(--paper-2) 0 8px,#e6e3d6 8px 16px)}
 .mb-sec{display:flex;margin-bottom:6px}.mb-sec button{flex:1;font-size:11px;padding:8px 6px}
+.board .dev,.nm .dev{display:inline-flex;width:13px;height:13px;margin-left:6px;vertical-align:-2px;color:var(--muted);opacity:.75;flex:none}
+.nm .dev svg{width:100%;height:100%}
 .secret-hero{display:flex;justify-content:center;margin:-8px 0 6px}
 .secret-hero img{height:120px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
 .btn .coins{font:800 11px/1 var(--mono);letter-spacing:0;color:var(--muted);text-transform:none}
@@ -502,7 +516,7 @@ body.touch .key-legend{display:none}
     <div class="key"><span><kbd>G</kbd></span>Ghosts</div>
     <div class="key"><span><kbd>L</kbd></span>Lights</div>
   </div>
-  <nav class="foot"><button class="link" data-open="ach">🏆 Achievements</button><button class="link" data-open="howto">How to play</button><button class="link" data-open="settings">Settings</button></nav>
+  <nav class="foot"><button class="link" data-open="ach">🏆 Achievements</button><button class="link" id="b-freecam">🎥 Freecam</button><button class="link" data-open="howto">How to play</button><button class="link" data-open="settings">Settings</button></nav>
 </section>
 
 <section id="finish" class="panel card" hidden aria-labelledby="f-time">
@@ -603,6 +617,20 @@ body.touch .key-legend{display:none}
     <div class="rp-btns">
       <button id="rp-restart">Restart</button><button id="rp-play">Pause</button><button id="rp-speed">1×</button>
       <button id="rp-cambtn">Camera <kbd>C</kbd></button><button class="exit" id="rp-exit">Done</button>
+    </div>
+  </div>
+</div>
+<div id="freecam" hidden>
+  <div class="rp-top"><span class="rec fc-rec">Freecam</span><span id="fc-name">—</span></div>
+  <div class="fc-pad" aria-label="Fly controls">
+    <button data-fc="up" aria-label="Up">⤒</button><button data-fc="fwd" aria-label="Forward">▲</button><button data-fc="down" aria-label="Down">⤓</button>
+    <button data-fc="left" aria-label="Left">◀</button><button data-fc="back" aria-label="Back">▼</button><button data-fc="right" aria-label="Right">▶</button>
+  </div>
+  <div class="rp-bar">
+    <div class="fc-hint"><span class="k-only"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly · <kbd>E</kbd>/<kbd>Q</kbd> up/down · drag to look · <kbd>Shift</kbd> faster · scroll for speed</span><span class="t-only">Drag to look · pad to fly</span></div>
+    <div class="rp-btns">
+      <button id="fc-start">Start</button><button id="fc-fin">Finish</button><button id="fc-top">Overview</button><button id="fc-speed">Speed 1×</button>
+      <button id="fc-race" class="go-b">Race it</button><button class="exit" id="fc-exit">Done</button>
     </div>
   </div>
 </div>
@@ -2327,7 +2355,20 @@ function buildSigns() {
   return grp;
 }
 
+const THEMES = {
+  base: { bg: '#bfe2dc', top: '#4aa2b4', hor: '#bfe2dc', sky: 0xe6f7f3, gnd: 0x4a6a36, near: 220, far: 900 },
+  cheems: { bg: '#ffb48a', top: '#6b3fa0', hor: '#ffb48a', sky: 0xffd9b8, gnd: 0x6a4a36, near: 160, far: 760 }
+};
+function applyTheme(name) {
+  const th = THEMES[name] || THEMES.base;
+  scene.background.set(th.bg); scene.fog.color.set(th.bg); scene.fog.near = th.near; scene.fog.far = th.far;
+  hemi.color.setHex(th.sky); hemi.groundColor.setHex(th.gnd);
+  const g = sky.geometry, p = g.attributes.position, col = g.attributes.color, top = new THREE.Color(th.top), hor = new THREE.Color(th.hor), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) { const t = clamp(p.getY(i) / 1800, 0, 1); c.copy(hor).lerp(top, Math.pow(t, 0.6)); col.setXYZ(i, c.r, c.g, c.b); }
+  col.needsUpdate = true;
+}
 function buildWorld() {
+  applyTheme(T.theme);
   signBoards = [];
   if (world) { scene.remove(world); disposeTree(world); }
   gateMats.length = 0;
@@ -3371,7 +3412,7 @@ function finishRace() {
   if (mp.active) { lastRunFrames = rec; statsFinish(null, null); mpFinish(); return; }
   if (secret.active) { lastRunFrames = rec; statsFinish(null, null); secretFinish(); return; }
   const runs = getRuns(raceKey), prevBest = runs.length ? runs[0].t : null;
-  const entry = { t: +finishTime.toFixed(3), splits: splits.map(s => +s.toFixed(3)), ts: Date.now(), g: rec };
+  const entry = { t: +finishTime.toFixed(3), splits: splits.map(s => +s.toFixed(3)), ts: Date.now(), g: rec, dev: MY_DEVICE };
   lastRunFrames = rec;
   runs.push(entry);
   saveRuns(raceKey, runs);
@@ -3436,7 +3477,7 @@ async function pullAccount() {
       wallet.coins = Math.max(0, Math.floor(d.coins));
       wallet.owned = [...new Set([...(Array.isArray(d.owned) ? d.owned : []), ...wallet.owned])].filter(id => COS[id]);
       wallet.cos = cleanCos(d.cos);
-      mergeStats(d); setTimeout(syncSecretBests, 3000);
+      mergeStats(d); pullSecrets(d); setTimeout(syncSecretBests, 3000);
       saveWallet(false); refreshMyCosmetics();
     } else saveWallet();   // first sign-in on this account: bring this browser's coins along
     if (typeof d.paint === 'string' && decodePaint(d.paint, MY_PAINT)) { store.set('ds:paint', d.paint); refreshMyPaint(); }
@@ -3533,7 +3574,7 @@ async function postTime(key, entry) {
       const prev = cur.best && cur.best[key];
       if (prev && typeof prev.t === 'number' && prev.t <= entry.t) return false;
       const best = Object.assign({}, cur.best || {});
-      best[key] = { t: entry.t, splits: entry.splits, ts: entry.ts };
+      best[key] = { t: entry.t, splits: entry.splits, ts: entry.ts, dev: entry.dev || MY_DEVICE };
       Object.keys(best).sort().slice(0, -40).forEach(k => delete best[k]);
       await ref.set(Object.assign({}, cur, { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT), coins: wallet.coins, owned: wallet.owned.slice(), cos: Object.assign({}, wallet.cos) }));
       if (entry.g && entry.g.length) {
@@ -3560,12 +3601,24 @@ async function fetchGhost(uid) {
   } catch (e) {}
   return null;
 }
+// which kind of device a time was set on, shown as a small icon next to the name on the board
+const MY_DEVICE = matchMedia('(pointer: coarse)').matches ? (Math.min(screen.width, screen.height) >= 700 ? 'tablet' : 'phone') : 'pc';
+const DEV_ICON = {
+  phone: ['Set on a phone', '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="12" r=".9" fill="currentColor"/></svg>'],
+  tablet: ['Set on a tablet', '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="1.5" width="11" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="12.2" r=".9" fill="currentColor"/></svg>'],
+  pc: ['Set on a computer', '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 14h5M8 11v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>']
+};
+function devIcon(dev) {
+  const d = DEV_ICON[dev]; if (!d) return null;
+  const el = document.createElement('i'); el.className = 'dev'; el.title = d[0]; el.setAttribute('aria-label', d[0]); el.innerHTML = d[1];
+  return el;
+}
 function onlineRows() {
   const out = [];
   for (const [uid, d] of net.drivers) {
     const b = d && d.best && d.best[raceKey];
     if (!b || typeof b.t !== 'number' || !(b.t > 5)) continue;
-    out.push({ uid, name: cleanName(d.name) || 'Driver', color: cleanColor(d.color), t: b.t, splits: Array.isArray(b.splits) ? b.splits : null, me: uid === net.uid });
+    out.push({ uid, name: cleanName(d.name) || 'Driver', color: cleanColor(d.color), t: b.t, dev: typeof b.dev === 'string' ? b.dev : null, splits: Array.isArray(b.splits) ? b.splits : null, me: uid === net.uid });
   }
   return out.sort((a, b) => a.t - b.t);
 }
@@ -4294,6 +4347,27 @@ const SECRETS = {
   doge: { key: DOGE_KEY, name: 'Doge Sky Run', icon: '🐕', best: 'ds:dogeBest', found: 'ds:secretFound', done: 'ds:dogePaint', img: () => DOGE_URL },
   cheems: { key: CHEEMS_KEY, name: 'Cheems Burgir Bonk', icon: '🍔', best: 'ds:cheemsBest', found: 'ds:cheemsFound', done: 'ds:cheemsDone', img: () => CHEEMS_URL }
 };
+// found if this browser saw it, or you ever finished it (achievement / best time here or on your account)
+function secretKnown(k) {
+  const SL = SECRETS[k]; if (!SL) return false;
+  if (store.get(SL.found, false) || store.get(SL.done, false) || store.get(SL.best, null) != null) return true;
+  if (achGot.has(k === 'cheems' ? 'burgir' : 'doge')) return true;
+  const me = net.uid && net.drivers.get(net.uid);
+  return !!(me && me.secret && typeof me.secret[k] === 'number');
+}
+// signing in on a new device: bring secret-level bests and unlocks down from the account
+function pullSecrets(d) {
+  if (d && Array.isArray(d.ach) && d.ach.includes('doge')) { store.set('ds:secretFound', true); store.set('ds:dogePaint', true); }
+  if (d && Array.isArray(d.ach) && d.ach.includes('burgir')) { store.set('ds:cheemsFound', true); store.set('ds:cheemsDone', true); }
+  if (!d || !d.secret || typeof d.secret !== 'object') return;
+  for (const k in SECRETS) {
+    const t = d.secret[k], SL = SECRETS[k]; if (typeof t !== 'number') continue;
+    const b = store.get(SL.best, null);
+    if (b == null || t < b) store.set(SL.best, t);
+    store.set(SL.found, true); store.set(SL.done, true);
+  }
+  fillPresetSelect();
+}
 const secretFor = (key) => Object.keys(SECRETS).find(k => SECRETS[k].key === key) || null;
 function inGap(s) { if (!T.gaps) return false; for (const g of T.gaps) if (s > g.s0 && s < g.s1) return true; return false; }
 function loadSecret(level) {
@@ -4327,7 +4401,7 @@ function buildCourse(key) {
 // Cheems Burgir Bonk: moon gravity, a big ramp every few hundred metres, burgirs floating over the road
 // (each one eaten takes half a second off your time), boost pads and giant Cheems billboards cheering you on
 function makeCheems() {
-  T.secret = true; T.shortcuts = []; T.name = 'Cheems Burgir Bonk'; T.grav = 0.55;
+  T.secret = true; T.shortcuts = []; T.name = 'Cheems Burgir Bonk'; T.grav = 0.55; T.theme = 'cheems';
   const rampLen = Math.ceil(9 / T.ds), ramps = T.ramps.slice(), pads = [], burgers = [];
   const clear = (a, b) => T.cps.every(c => c < a - 12 || c > b + 8) && ramps.every(r => r.i1 < a - 30 || r.i0 > b + 30);
   for (let a = 70; a < T.N - 70; a += 4) {
@@ -4341,9 +4415,28 @@ function makeCheems() {
   // burgirs: little zig-zag trails, some floating high after ramps so you have to fly for them
   for (let i = 40; i < T.N - 30; i += 22) {
     const afterRamp = ramps.find(r => i > r.i1 && i < r.i1 + 20);
-    burgers.push({ i, lat: Math.sin(i * 0.37) * 3.2, up: afterRamp ? 4.5 : 1.3, got: false });
+    burgers.push({ i, lat: Math.sin(i * 0.37) * 2.4, up: afterRamp ? 4.5 : 1.3, got: false });
   }
   T.ramps = ramps; T.pads = pads; T.burgers = burgers;
+  placeAirBurgers();
+}
+// the burgirs up in the air sit on the real jump arc: an autopilot drives the course once and each
+// floating burgir goes where it peaks after a ramp, a bit lower so slower jumps still reach it
+function placeAirBurgers() {
+  T.burgers = T.burgers.filter(b => b.up < 2);   // drop the guessed ones
+  // each ramp gets its own test jump: the autopilot runs up from 40 samples back, lined up in the middle
+  for (const r of T.ramps) {
+    const c = spawnCar(Math.max(T.spawnIdx, r.i0 - 40));
+    let pk = null;
+    for (let n = 0; n < 120 * 12 && c.idx <= r.i1 + 45; n++) {
+      stepCar(c, botInput(c), DT);
+      if (c.idx > r.i1 && Math.abs(c.lat) < 3.5) { const up = c.y - T.Y[c.idx]; if (!pk || up > pk.up) pk = { i: c.idx, lat: c.lat, up }; }
+    }
+    if (pk && pk.up > 2.2) T.burgers.push({ i: pk.i, lat: pk.lat, up: pk.up + 0.6 - 1.0, got: false, air: true });
+  }
+  T.burgers.sort((p, q) => p.i - q.i);
+  // keep ground burgirs off the jumps so you're never flying over them
+  T.burgers = T.burgers.filter(b => b.air || !T.ramps.some(r => b.i >= r.i0 - 2 && b.i <= r.i1 + 45));
 }
 function buildCheemsDecor() {
   const grp = new THREE.Group();
@@ -4374,6 +4467,40 @@ function buildCheemsDecor() {
     const pic = new THREE.Mesh(new THREE.PlaneGeometry(7, 7), face); pic.position.y = 7.5; b.add(pic);
     for (const px of [-2, 2]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4.5, 0.3), post); m.position.set(px, 2.25, -0.05); b.add(m); }
     grp.add(b);
+  }
+  // giant burgir arches over the road: fry-box pillars holding up a bun
+  const red = new THREE.MeshLambertMaterial({ color: 0xd8281e }), fry = new THREE.MeshLambertMaterial({ color: 0xffd23f, emissive: 0x3a2a00 });
+  for (let i = 90, n = 0; i < T.N - 40; i += 140, n++) {
+    if (T.cps.some(c => Math.abs(c - i) < 12) || T.ramps.some(r => i > r.i0 - 15 && i < r.i1 + 25)) { i -= 110; continue; }
+    const a = new THREE.Group(); a.position.set(T.X[i], T.Y[i], T.Z[i]); a.rotation.y = T.HEAD[i];
+    for (const sx of [-1, 1]) {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(2.4, 6, 2.4), red); box.position.set(sx * (HALF_W + 2.5), 3, 0); a.add(box);
+      for (let k = 0; k < 7; k++) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3 + (k % 3), 0.35), fry); f.position.set(sx * (HALF_W + 2.5) + (k % 3 - 1) * 0.6, 6.5 + (k % 3) * 0.4, (Math.floor(k / 3) - 1) * 0.6); f.rotation.z = (k - 3) * 0.06; a.add(f); }
+    }
+    const topBun = new THREE.Mesh(new THREE.BoxGeometry((HALF_W + 4) * 2, 1.6, 3), bun); topBun.position.y = 9.6; a.add(topBun);
+    const pat = new THREE.Mesh(new THREE.BoxGeometry((HALF_W + 4) * 2, 0.7, 3.2), patty); pat.position.y = 8.5; a.add(pat);
+    const chz = new THREE.Mesh(new THREE.BoxGeometry((HALF_W + 4.5) * 2, 0.25, 3.4), cheese); chz.position.y = 8.95; a.add(chz);
+    const lt = new THREE.Mesh(new THREE.BoxGeometry((HALF_W + 4.2) * 2, 0.25, 3.5), lettuce); lt.position.y = 8.1; a.add(lt);
+    grp.add(a);
+  }
+  // fry forests: clumps of giant fries sticking out of the fields
+  for (let i = 30; i < T.N - 10; i += 17) {
+    const side = (i / 17) % 2 ? 1 : -1, lat = side * (HALF_W + 16 + (i * 7) % 20);
+    const x = T.X[i] - T.TZ[i] * lat, z = T.Z[i] + T.TX[i] * lat, y = terrainH(x, z);
+    for (let k = 0; k < 5; k++) {
+      const h = 3 + ((i + k * 5) % 6);
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.8, h, 0.8), fry);
+      f.position.set(x + (k % 3 - 1) * 1.4, y + h / 2 - 0.3, z + (k - 2) * 0.9); f.rotation.set((k - 2) * 0.12, k, (k % 2 ? 1 : -1) * 0.15); grp.add(f);
+    }
+  }
+  // giant Cheems floating in the sunset, always facing you
+  const sprMat = new THREE.SpriteMaterial({ map: tex, fog: false, transparent: true });
+  let cx = 0, cz = 0; for (let i = 0; i < T.N; i++) { cx += T.X[i]; cz += T.Z[i]; } cx /= T.N; cz /= T.N;
+  T.bigCheems = [];
+  for (let k = 0; k < 5; k++) {
+    const a = k / 5 * Math.PI * 2 + 0.4, sp = new THREE.Sprite(sprMat);
+    sp.position.set(cx + Math.cos(a) * 520, 110 + (k % 2) * 60, cz + Math.sin(a) * 520); sp.scale.set(130, 130, 1);
+    sp.userData.y = sp.position.y; T.bigCheems.push(sp); grp.add(sp);
   }
   return grp;
 }
@@ -4421,6 +4548,7 @@ function buildPads() {
 function secretStep() {
   if (T.burgers) {
     const spin = performance.now() / 600;
+    if (T.bigCheems) T.bigCheems.forEach((sp, k) => { sp.position.y = sp.userData.y + Math.sin(spin * 0.4 + k) * 8; });
     for (const b of T.burgers) {
       if (!b.mesh) continue;
       b.mesh.rotation.y = spin + b.i; b.mesh.position.y = b.y + Math.sin(spin * 2 + b.i) * 0.25;
@@ -4461,12 +4589,12 @@ function postSecretBest(level, t) {
 }
 function syncSecretBests() { for (const k in SECRETS) { const b = store.get(SECRETS[k].best, null); if (typeof b === 'number') postSecretBest(k, b); } }
 function renderSecretBoard(list, sub) {
-  const found = Object.keys(SECRETS).filter(k => store.get(SECRETS[k].found, false));
+  const found = Object.keys(SECRETS).filter(secretKnown);
   if (!SECRETS[secretTab]) secretTab = 'doge';
   const SL = SECRETS[secretTab], known = found.includes(secretTab);
   sub.textContent = '';
   const seg = document.createElement('div'); seg.className = 'seg mb-sec';
-  for (const k in SECRETS) { const b = document.createElement('button'); b.textContent = store.get(SECRETS[k].found, false) ? SECRETS[k].icon + ' ' + SECRETS[k].name : '🔒 ???'; b.setAttribute('aria-pressed', String(k === secretTab)); b.onclick = () => { secretTab = k; renderSecretBoard(list, sub); }; seg.append(b); }
+  for (const k in SECRETS) { const b = document.createElement('button'); b.textContent = secretKnown(k) ? SECRETS[k].icon + ' ' + SECRETS[k].name : '🔒 ???'; b.setAttribute('aria-pressed', String(k === secretTab)); b.onclick = () => { secretTab = k; renderSecretBoard(list, sub); }; seg.append(b); }
   sub.append(seg, document.createElement('br'), document.createTextNode(known ? 'Best time per driver on this secret level.' : 'Find this secret level to see its name. Hint: someone on the team likes being clicked.'));
   const rows = [];
   for (const [uid, d] of net.drivers) { const t = d && d.secret && d.secret[secretTab]; if (typeof t === 'number' && t > 5) rows.push({ uid, d, t }); }
@@ -4761,10 +4889,10 @@ function boardEntries() {
   if (T.ultra) out.push({ id: 'ultra', name: 'Ultra pace', sub: 'fastest line anywhere', t: T.ultra.t, has: true });
   if (T.rival) out.push({ id: 'rival', name: 'Pace car', sub: 'autopilot', t: T.rival.t, has: true });
   if (net.ready && onlineName()) {
-    onlineRows().forEach((r, i) => out.push({ id: r.me ? (runs[0] && runs[0].g ? 'me' : 'drv:' + r.uid) : 'drv:' + r.uid, uid: r.uid, name: r.name, sub: r.me ? 'you' : '', pts: pointsFor(i + 1), t: r.t, me: r.me, has: true, color: r.color }));
+    onlineRows().forEach((r, i) => out.push({ id: r.me ? (runs[0] && runs[0].g ? 'me' : 'drv:' + r.uid) : 'drv:' + r.uid, uid: r.uid, name: r.name, sub: r.me ? 'you' : '', pts: pointsFor(i + 1), t: r.t, me: r.me, has: true, color: r.color, dev: r.dev }));
   } else {
-    if (net.ready) onlineRows().forEach((r, i) => out.push({ id: 'drv:' + r.uid, uid: r.uid, name: r.name, sub: '', pts: pointsFor(i + 1), t: r.t, has: true, color: r.color }));
-    runs.forEach((r, i) => out.push({ id: i === 0 ? 'me' : 'run:' + r.ts, name: (myName() || 'You') + (i === 0 ? ' · best' : ''), sub: new Date(r.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · this device', t: r.t, me: true, has: !!r.g }));
+    if (net.ready) onlineRows().forEach((r, i) => out.push({ id: 'drv:' + r.uid, uid: r.uid, name: r.name, sub: '', pts: pointsFor(i + 1), t: r.t, has: true, color: r.color, dev: r.dev }));
+    runs.forEach((r, i) => out.push({ id: i === 0 ? 'me' : 'run:' + r.ts, name: (myName() || 'You') + (i === 0 ? ' · best' : ''), sub: new Date(r.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · this device', t: r.t, me: true, has: !!r.g, dev: r.dev || MY_DEVICE }));
   }
   return out.sort((a, b) => a.t - b.t);
 }
@@ -5219,10 +5347,11 @@ function updateExtraSound(gi, kmh) {
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
-  const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+  const raw = (now - last) / 1000, dt = clamp(raw, 0, 0.05); last = now;   // never negative: a reset of `last` can land after this frame's timestamp
   tunePerf(raw);
   if (!T || !car) return;
   moeTick(dt);
+  if (state === 'freecam') { freecamFrame(dt); return; }
   if (!paused && state !== 'replay') {
     if (state === 'countdown') {
       countdownT = mp.active && mp.goAt ? (mp.goAt - srvNow()) / 1000 : countdownT - dt;   // multiplayer: everyone gets GO at the same server time
@@ -5265,6 +5394,73 @@ function frame(now) {
   if (mpWatching()) mpWatchCamera(dt);
   renderer.render(scene, camera);
 }
+// ---- freecam: fly around the loaded course to preview it ----
+const fc = { pos: new THREE.Vector3(), yaw: 0, pitch: -0.25, spd: 1, drag: null, touch: {} };
+const FC_SPEEDS = [0.5, 1, 2, 4];
+function startFreecam() {
+  if (!T || state !== 'title') return;
+  closeModal(); closeMenu(); hideCards();
+  $('#hud').hidden = true; $('#touch').hidden = true;
+  state = 'freecam'; fc.drag = null; fc.touch = {};
+  $('#fc-name').textContent = T.name + (secretFor(raceKey) ? '' : ' · ' + prettyDate(raceKey));
+  fcGo('start');
+  $('#freecam').hidden = false;
+}
+function exitFreecam(race) {
+  $('#freecam').hidden = true;
+  Object.keys(keys).forEach(k => keys[k] = false);
+  camInit = false; showTitle();
+  if (race) $('#b-race').click();
+}
+function fcGo(where) {
+  if (where === 'top') {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, ym = 0;
+    for (let i = 0; i < T.N; i++) { x0 = Math.min(x0, T.X[i]); x1 = Math.max(x1, T.X[i]); z0 = Math.min(z0, T.Z[i]); z1 = Math.max(z1, T.Z[i]); ym = Math.max(ym, T.Y[i]); }
+    const span = Math.max(x1 - x0, z1 - z0);
+    fc.pos.set((x0 + x1) / 2, ym + span * 0.55 + 40, z1 + span * 0.35); fc.yaw = Math.PI; fc.pitch = -0.95; return;
+  }
+  const i = where === 'fin' ? T.cps[T.cps.length - 1] : T.startIdx, k = Math.max(0, i - 8);
+  fc.yaw = T.HEAD[i]; fc.pitch = -0.22;
+  fc.pos.set(T.X[k] - T.TX[i] * 10, T.Y[k] + 6, T.Z[k] - T.TZ[i] * 10);
+}
+function freecamFrame(dt) {
+  const k = keys, t = fc.touch, sp = 22 * FC_SPEEDS[fc.spd] * (k.ShiftLeft || k.ShiftRight ? 3 : 1) * dt;
+  const f = (k.KeyW || k.ArrowUp || t.fwd ? 1 : 0) - (k.KeyS || k.ArrowDown || t.back ? 1 : 0);
+  const r = (k.KeyD || k.ArrowRight || t.right ? 1 : 0) - (k.KeyA || k.ArrowLeft || t.left ? 1 : 0);
+  const u = (k.KeyE || k.Space || t.up ? 1 : 0) - (k.KeyQ || k.ControlLeft || t.down ? 1 : 0);
+  const cp = Math.cos(fc.pitch), fx = Math.sin(fc.yaw) * cp, fy = Math.sin(fc.pitch), fz = Math.cos(fc.yaw) * cp;
+  fc.pos.x += (fx * f - Math.cos(fc.yaw) * r) * sp; fc.pos.y += (fy * f + u) * sp; fc.pos.z += (fz * f + Math.sin(fc.yaw) * r) * sp;
+  fc.pos.y = clamp(fc.pos.y, terrainH(fc.pos.x, fc.pos.z) + 1.2, 1200);
+  camera.position.copy(fc.pos);
+  camera.lookAt(fc.pos.x + fx, fc.pos.y + fy, fc.pos.z + fz);
+  updateGhosts(); updateGates(dt);
+  if (T.secret) secretStep();
+  const c = camera.position;
+  sun.position.set(c.x + SUN_DIR.x * 150, c.y + SUN_DIR.y * 150, c.z + SUN_DIR.z * 150);
+  sun.target.position.copy(c); sky.position.copy(c);
+  if (audio.ctx) { const at = audio.ctx.currentTime; audio.gain.gain.setTargetAtTime(0, at, 0.1); audio.sq.gain.setTargetAtTime(0, at, 0.1); if (audio.wind) audio.wind.gain.setTargetAtTime(0, at, 0.1); }
+  renderer.render(scene, camera);
+}
+function initFreecam() {
+  // the canvas is made later at boot, so listen on the window and only react to presses on the canvas
+  addEventListener('pointerdown', (e) => { if (state !== 'freecam' || !e.target || e.target.tagName !== 'CANVAS') return; fc.drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+  addEventListener('pointermove', (e) => {
+    if (state !== 'freecam' || !fc.drag || e.pointerId !== fc.drag.id) return;
+    fc.yaw -= (e.clientX - fc.drag.x) * 0.005; fc.pitch = clamp(fc.pitch - (e.clientY - fc.drag.y) * 0.005, -1.45, 1.2);
+    fc.drag.x = e.clientX; fc.drag.y = e.clientY;
+  });
+  addEventListener('pointerup', (e) => { if (fc.drag && e.pointerId === fc.drag.id) fc.drag = null; });
+  addEventListener('wheel', (e) => { if (state !== 'freecam' || !e.target || e.target.tagName !== 'CANVAS') return; e.preventDefault(); fc.spd = clamp(fc.spd + (e.deltaY < 0 ? 1 : -1), 0, FC_SPEEDS.length - 1); fcSpeedLabel(); }, { passive: false });
+  document.querySelectorAll('.fc-pad button').forEach(b => {
+    const on = (v) => (e) => { e.preventDefault(); fc.touch[b.dataset.fc] = v; b.classList.toggle('on', v); };
+    b.addEventListener('pointerdown', on(true)); b.addEventListener('pointerup', on(false)); b.addEventListener('pointercancel', on(false)); b.addEventListener('pointerleave', on(false));
+  });
+  $('#b-freecam').onclick = () => startFreecam();
+  $('#fc-start').onclick = () => fcGo('start'); $('#fc-fin').onclick = () => fcGo('fin'); $('#fc-top').onclick = () => fcGo('top');
+  $('#fc-speed').onclick = () => { fc.spd = (fc.spd + 1) % FC_SPEEDS.length; fcSpeedLabel(); };
+  $('#fc-race').onclick = () => exitFreecam(true); $('#fc-exit').onclick = () => exitFreecam();
+}
+function fcSpeedLabel() { $('#fc-speed').textContent = 'Speed ' + FC_SPEEDS[fc.spd] + '×'; }
 function replayFrame(dt) {
   replayPose(dt);
   updateGhosts();
@@ -5364,6 +5560,7 @@ function renderBoard(list, sub) {
     if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
     if (medal) { const m = document.createElement('i'); m.className = 'medal ' + medal.cls; nm.append(m); }
     nm.append(document.createTextNode(s.name));
+    const di = s.dev && devIcon(s.dev); if (di) nm.append(di);
     if (s.sub) { const sm = document.createElement('small'); sm.textContent = s.sub; nm.append(sm); }
     if (s.pts) { const pt = document.createElement('span'); pt.className = 'pts'; pt.textContent = '+' + s.pts; pt.title = s.pts + ' points for this race'; nm.append(pt); }
     const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = fmt(s.t);
@@ -5611,7 +5808,7 @@ function openModal(kind) {
       const runs = getRuns(k);
       rows += `<li><button data-k="${k}"><span class="no">#${raceNo(k)}</span><span class="${k === raceKey ? 'cur' : ''}">${d === 0 ? 'Today · ' : ''}${prettyDate(k)}${k === raceKey ? ' · loaded' : ''}</span><span class="tm">${runs.length ? fmt(runs[0].t) : '—'}</span></button></li>`;
     }
-    const secLis = Object.keys(SECRETS).filter(k => store.get(SECRETS[k].found, false)).map(k => { const b = store.get(SECRETS[k].best, null); return `<li><button data-secret="${k}"><span class="no">${SECRETS[k].icon}</span><span>${SECRETS[k].name}</span><span class="tm">${b != null ? fmt(b) : '—'}</span></button></li>`; }).join('');
+    const secLis = Object.keys(SECRETS).filter(secretKnown).map(k => { const b = store.get(SECRETS[k].best, null); return `<li><button data-secret="${k}"><span class="no">${SECRETS[k].icon}</span><span>${SECRETS[k].name}</span><span class="tm">${b != null ? fmt(b) : '—'}</span></button></li>`; }).join('');
     const secretRow = secLis ? `<h3>Secret</h3><ul class="past">${secLis}</ul>` : '';
     c.innerHTML = `<h2>Races</h2><p class="sub">Every day has its own route. A new one unlocks at midnight.</p>${secretRow}<h3>Coming up</h3><ul class="past">${upRows}</ul><h3>Today and past races</h3><ul class="past">${rows}</ul>`;
     const tick = () => document.querySelectorAll('[data-unlock]').forEach(el => { el.textContent = unlockIn(el.dataset.unlock); });
@@ -5897,6 +6094,11 @@ addEventListener('keydown', (e) => {
     else if (e.code === 'ArrowRight') replay.t += 2;
     return;
   }
+  if (state === 'freecam') {
+    if (e.code === 'Escape') exitFreecam();
+    if (e.code === 'Space') e.preventDefault();
+    return;
+  }
   if (state === 'garage') {
     if (e.code === 'Escape') closeGarage();
     else if (e.code === 'KeyC') { shop.pan.set(0, 0, 0); shop.dist = 7.5; }
@@ -5940,6 +6142,7 @@ $('#b-race').onclick = () => {
   restart();
 };
 $('#b-mp').onclick = () => { ensureAudio(); mpOpen(); };
+initFreecam();
 document.querySelectorAll('#g-tabs button').forEach(b => b.onclick = () => setGarageTab(b.dataset.gtab));
 $('#wb-prev').onclick = () => mpWatchStep(-1);
 $('#wb-next').onclick = () => mpWatchStep(1);
