@@ -4485,7 +4485,7 @@ function flashCheck() {
   }
 }
 // Moe plays his song while he's on your car and you're driving; the speakers thump and the lights cycle
-const moe = { el: null, t: 0 };
+const moe = { el: null, t: 0, remote: new Map() };
 function moeTick(dt) {
   const on = !!carMesh && myCos().rear === 'moe';
   const play = on && settings.sound && !paused && !document.hidden && (state === 'countdown' || state === 'racing' || state === 'finished');
@@ -4493,9 +4493,28 @@ function moeTick(dt) {
     if (!moe.el) { moe.el = new Audio(MOE_URL); moe.el.loop = true; moe.el.volume = 0.45; }
     if (moe.el.paused) moe.el.play().catch(() => {});
   } else if (moe.el && !moe.el.paused) moe.el.pause();
-  if (!on) return;
-  const box = carMesh.getObjectByName('moe'); if (!box) return;
   moe.t += dt;
+  // other players' Moes: each has its own player, loudest right next to them and silent past ~60 m
+  const live = (mp.active || mp.spec) && settings.sound && !paused && !document.hidden;
+  for (const [uid, a] of moe.remote) {
+    const g = live && mp.ghosts.get(uid), box = g && g.mesh.visible && g.mesh.getObjectByName('moe');
+    if (!box) { if (!a.paused) a.pause(); continue; }
+  }
+  if (live) for (const [uid, g] of mp.ghosts) {
+    if (uid === net.uid || !g.mesh || !g.mesh.visible) continue;
+    const box = g.mesh.getObjectByName('moe'); if (!box) continue;
+    let a = moe.remote.get(uid);
+    if (!a) { a = new Audio(MOE_URL); a.loop = true; a.volume = 0; moe.remote.set(uid, a); }
+    const d = camera.position.distanceTo(g.mesh.position), vol = 0.5 * Math.pow(clamp(1 - (d - 6) / 54, 0, 1), 2);
+    a.volume = vol;
+    if (vol > 0 && a.paused) { a.play().then(() => { if (a.duration) a.currentTime = (srvNow() / 1000 + uid.length) % a.duration; }).catch(() => {}); }
+    else if (vol === 0 && !a.paused) a.pause();
+    moeAnim(box, vol > 0);
+  }
+  if (!on) return;
+  const box = carMesh.getObjectByName('moe'); if (box) moeAnim(box, play);
+}
+function moeAnim(box, play) {
   const beat = play ? Math.pow(Math.max(0, Math.sin(moe.t * Math.PI * 1.9)), 6) : 0;   // ~114 bpm thump
   box.userData.cones.forEach(c => { c.scale.set(1 + beat * 0.25, 1 + beat * 0.9, 1 + beat * 0.25); });
   box.scale.setScalar(1 + beat * 0.04);
