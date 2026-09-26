@@ -134,6 +134,10 @@ kbd{font:700 9px/1 var(--ui);min-width:20px;padding:5px 5px;border:1.5px solid v
 .gs-item .buy:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
 .gs-item.none .ic{opacity:.45}
 .g-row > *{flex:1}
+.g-panel > *,.card > *{flex-shrink:0}
+.g-hint .t-only{display:none}
+body.touch .g-hint .k-only{display:none}
+body.touch .g-hint .t-only{display:inline}
 .g-tools button,.g-row button,.g-row select{min-height:36px;border:1px solid var(--line);border-radius:4px;background:var(--paper-2);font:800 11px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
 .g-tools button[aria-pressed="true"],.g-row button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
 .g-row select{padding:0 8px;text-transform:none;font-weight:700;font-size:13px}
@@ -148,8 +152,14 @@ kbd{font:700 9px/1 var(--ui);min-width:20px;padding:5px 5px;border:1.5px solid v
 .g-sw{aspect-ratio:1;border:0;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);cursor:pointer;max-width:100%}
 .g-sw:hover{transform:scale(1.12)}
 @media (max-width:640px){
-  .g-panel{top:auto;left:0;right:0;bottom:0;width:auto;max-height:48%;border-radius:12px 12px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+  .g-panel{top:auto;left:0;right:0;bottom:0;width:auto;max-height:52%;border-radius:12px 12px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
   .g-hint{right:16px;font-size:9.5px}
+  .gs-grid{grid-template-columns:repeat(4,1fr)}
+  .gs-slots button{padding:9px 2px 8px}
+  .g-head .btn{min-height:44px}
+  .modal-body{padding:20px 16px}
+  .mb-tabs{display:flex;width:100%}
+  .mb-tabs button{flex:1;padding:10px 4px;font-size:11px}
 }
 #rival{position:absolute;top:calc(104px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;padding:5px 10px;border-radius:4px;background:rgba(16,26,33,.45);font:700 13px/1 var(--mono);white-space:nowrap}
 #rival .lab{font:800 9.5px/1 var(--ui);letter-spacing:.14em;opacity:.8}
@@ -277,6 +287,19 @@ body.touch #flip .k-touch{display:inline}
 @keyframes dogeHop{0%{transform:rotate(14deg) translateY(0)}40%{transform:rotate(4deg) translateY(-26px)}100%{transform:rotate(14deg) translateY(0)}}
 @keyframes dogeSpin{to{transform:rotate(734deg) scale(.2);opacity:0}}
 .doge-say{position:absolute;left:150px;top:40px;white-space:nowrap;font:800 26px/1 "Comic Sans MS","Comic Neue",cursive;color:#ff2fb3;text-shadow:0 2px 0 #fff,0 0 12px #fff;transform:rotate(-8deg)}
+.fesse{border:0;background:none;padding:0;font:inherit;color:inherit;text-decoration:underline dotted;cursor:pointer;display:inline-block}
+.fesse.wig{animation:fesseWig .4s}
+@keyframes fesseWig{25%{transform:rotate(-12deg) scale(1.2)}75%{transform:rotate(12deg) scale(1.2)}}
+.cheems-peek{position:fixed;z-index:30;right:-30px;bottom:-260px;width:200px;pointer-events:none;transition:bottom .5s cubic-bezier(.3,1.6,.5,1)}
+.cheems-peek.in{bottom:-60px}.cheems-peek.up{bottom:20px}
+.cheems-peek img{width:100%;display:block;transform:rotate(-12deg);filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
+.cheems-peek .say{position:absolute;right:170px;top:30px;white-space:nowrap;font:800 26px/1 "Comic Sans MS","Comic Neue",cursive;color:#ff7a1a;text-shadow:0 2px 0 #fff,0 0 12px #fff;transform:rotate(6deg)}
+.cheems-peek.bonk img{animation:bonk .5s}
+@keyframes bonk{30%{transform:rotate(-12deg) scale(1.15,.55) translateY(40px)}100%{transform:rotate(-12deg)}}
+.bonk-shake{animation:bshake .4s}
+@keyframes bshake{20%{transform:translate(-8px,4px)}40%{transform:translate(7px,-5px)}60%{transform:translate(-5px,3px)}80%{transform:translate(3px,-2px)}}
+.gs-item.locked{opacity:.7;cursor:help;background:repeating-linear-gradient(45deg,var(--paper-2) 0 8px,#e6e3d6 8px 16px)}
+.mb-sec{display:flex;margin-bottom:6px}.mb-sec button{flex:1;font-size:11px;padding:8px 6px}
 .secret-hero{display:flex;justify-content:center;margin:-8px 0 6px}
 .secret-hero img{height:120px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
 .btn .coins{font:800 11px/1 var(--mono);letter-spacing:0;color:var(--muted);text-transform:none}
@@ -388,6 +411,23 @@ body.touch .keys-hint{display:none}
 body.touch .hud-box{bottom:auto;top:calc(14px + env(safe-area-inset-top,0px))}
 body.touch #hud-left{width:140px;padding:8px 10px}
 body.touch #hud-speed{padding:6px 10px;min-width:76px}
+/* phones in portrait: timer alone up top, compact boxes either side, pace/split lines above the pedals */
+@media (max-width:640px){
+  body.touch #timer{top:calc(18px + env(safe-area-inset-top,0px));font-size:22px}
+  body.touch #hud-left{width:96px;padding:6px 8px;gap:4px}
+  body.touch #hud-left > div:nth-child(2){display:none}
+  body.touch #hud-left .segs{display:none}
+  body.touch #hud-speed{min-width:62px;padding:5px 8px}
+  body.touch #hud-speed b{font-size:26px}
+  body.touch #hud-boost{top:calc(88px + env(safe-area-inset-top,0px));right:16px;min-width:62px;padding:5px 8px}
+  body.touch #hud-boost b{font-size:18px}
+  body.touch #minimap{top:calc(70px + env(safe-area-inset-top,0px));width:96px;height:96px}
+  body.touch .t-menu,body.touch .t-rec{top:calc(150px + env(safe-area-inset-top,0px))}
+  body.touch .t-rec{right:16px!important}body.touch .t-menu{right:68px!important}
+  body.touch #rival{top:auto;bottom:calc(215px + env(safe-area-inset-bottom,0px));font-size:12px}
+  body.touch #split{top:auto!important;bottom:calc(245px + env(safe-area-inset-bottom,0px))}
+  body.touch #surf{top:calc(180px + env(safe-area-inset-top,0px))}
+}
 body.touch #hud-speed b{font-size:34px}
 body.touch #timer{top:calc(16px + env(safe-area-inset-top,0px));font-size:24px}
 body.touch #split{top:calc(50px + env(safe-area-inset-top,0px))}
@@ -519,7 +559,7 @@ body.touch .key-legend{display:none}
 </div>
 
 <div id="garage" hidden>
-  <div class="g-hint">Paint on the car · Right-drag to orbit · Middle-drag to pan · Scroll to zoom · <kbd>C</kbd> to center</div>
+  <div class="g-hint"><span class="k-only">Paint on the car · Right-drag to orbit · Middle-drag to pan · Scroll to zoom · <kbd>C</kbd> to center</span><span class="t-only">Tap the car to paint · Pick Move to spin it · Shop for parts</span></div>
   <aside class="g-panel panel" aria-label="Paint shop">
     <div class="g-head"><h2>Customize</h2><button class="btn go" id="g-done">Done</button></div>
     <div class="seg g-tabs" id="g-tabs"><button data-gtab="paint" aria-pressed="true">Paint</button><button data-gtab="shop" aria-pressed="false">Shop</button></div>
@@ -1140,7 +1180,7 @@ function stepCar(c, inp, dt) {
   c.thr = inp.throttle; c.hand = inp.hand;
   const boosting = !!inp.boost && c.boost > 0.02;
 
-  let Fx = 0, Fy = -GRAV, Fz = 0, Tx = 0, Ty = 0, Tz = 0;
+  let Fx = 0, Fy = -GRAV * (T && T.grav || 1), Fz = 0, Tx = 0, Ty = 0, Tz = 0;
   const add = (px, py, pz, fx, fy, fz) => {
     const rx = px - c.x, ry = py - c.y, rz = pz - c.z;
     Fx += fx; Fy += fy; Fz += fz;
@@ -2609,7 +2649,7 @@ function openGarage() {
   closeModal(); closeMenu(); hideCards();
   $('#hud').hidden = true; $('#touch').hidden = true;
   car = spawnCar(); state = 'garage';
-  shop.yaw = car.h + 2.3; shop.pitch = 0.32; shop.dist = 7.5; shop.pan.set(0, 0, 0);
+  shop.yaw = car.h + 2.3; shop.pitch = 0.32; shop.dist = innerWidth < 640 ? 11 : 7.5; shop.pan.set(0, innerWidth < 640 ? -1.8 : 0, 0);   // phones: lift the car above the panel
   ghostObjs.forEach(g => { g.mesh.visible = false; });
   renderGarage();
   $('#garage').hidden = false;
@@ -2635,6 +2675,12 @@ function renderShop() {
   grid.append(none);
   COS_ITEMS.filter(it => it.slot === shopSlot && (!it.secret || wallet.owned.includes(it.id))).forEach(it => {
     const owned = wallet.owned.includes(it.id), on = eq === it.id, pv = cosPreview && cosPreview.id === it.id;
+    if (it.lock && !owned && !store.get(it.lock, false)) {   // still a mystery: a lock and ??? until its secret is found
+      const el = document.createElement('div'); el.className = 'gs-item locked'; el.title = 'Secret';
+      el.innerHTML = '<span class="ic">🔒</span><span class="nm">???</span><small>Secret</small>';
+      el.onclick = () => toast('🔒 Find a secret to unlock this one');
+      grid.append(el); return;
+    }
     const el = document.createElement('div'); el.className = 'gs-item' + (on ? ' eq' : '') + (pv ? ' pv' : '') + (owned ? ' own' : ''); el.tabIndex = 0; el.title = it.name;
     const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = it.icon;
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = it.name;
@@ -2946,6 +2992,7 @@ const COS_ITEMS = [
   { id: 'flame', slot: 'hood', name: 'Flame', price: 80, icon: '🔥' },
   { id: 'eagle', slot: 'hood', name: 'Golden eagle', price: 140, icon: '🦅' },
   { id: 'crown', slot: 'hood', name: 'Crown', price: 180, icon: '👑' },
+  { id: 'cheems', slot: 'hood', name: 'Cheems', price: 200, icon: '🐶', lock: 'ds:cheemsDone' },   // clear the Cheems secret level to buy
   { id: 'stacks', slot: 'bay', name: 'Intake stacks', price: 140, icon: '🔩' },
   { id: 'turbo', slot: 'bay', name: 'Twin turbos', price: 180, icon: '🌀' },
   { id: 'blower', slot: 'bay', name: 'Supercharger', price: 220, icon: '⚙️' },
@@ -3070,6 +3117,13 @@ function buildCosmetics(cos, ghost) {
       put(C(0.16, 0.14, 0.12, 12), gold, 0, HY + 0.08, 1.85);
       for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; put(K(0.04, 0.14, 6), gold, Math.cos(a) * 0.14, HY + 0.2, 1.85 + Math.sin(a) * 0.14); put(S(0.03), L(0xd8324a), Math.cos(a) * 0.15, HY + 0.1, 1.85 + Math.sin(a) * 0.15); }
       break;
+    case 'cheems': {
+      // a little Cheems cut-out standing on a gold plinth, looking forward
+      const face = cosMat('cheemsImg', () => { const t = new THREE.TextureLoader().load(CHEEMS_URL); return new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide }); });
+      put(C(0.2, 0.24, 0.1, 16), gold, 0, HY + 0.06, 1.7);
+      put(new THREE.PlaneGeometry(0.75, 0.75), face, 0, HY + 0.48, 1.7, 0, Math.PI).castShadow = false;
+      break;
+    }
   }
   switch (cos.bay) {
     case 'stacks':
@@ -3198,7 +3252,7 @@ function applyCosmetics(root, cos, ghost) {
 }
 function refreshMyCosmetics() { if (carMesh) applyCosmetics(carMesh, myCos(), false); }
 function botCos(rng) {
-  const pick = (slot) => { const l = COS_ITEMS.filter(it => it.slot === slot && !it.secret); return rng.f() < 0.6 ? l[Math.floor(rng.f() * l.length)].id : undefined; };
+  const pick = (slot) => { const l = COS_ITEMS.filter(it => it.slot === slot && !it.secret && !it.lock); return rng.f() < 0.6 ? l[Math.floor(rng.f() * l.length)].id : undefined; };
   return cleanCos({ hood: pick('hood'), roof: pick('roof'), sticker: pick('sticker'), rear: pick('rear') });
 }
 
@@ -3250,7 +3304,7 @@ function simStep() {
   const inp = state === 'racing' ? inputNow() : state === 'finished' ? COAST : NO_INPUT;
   stepCar(car, inp, DT, true);
   if (mp.active && (state === 'racing' || state === 'finished')) mpCollide(car);
-  if (T.parkour) secretStep();
+  if (T.secret) secretStep();
   if (state === 'racing' || state === 'finished') clock += DT;
   if (state !== 'racing') return;
   raceTime += DT;
@@ -3295,6 +3349,7 @@ function restart() {
   raceTime = 0; clock = 0; finishTime = null; nextCp = 0; lastCpIdx = T.spawnIdx; splits = []; rec = []; recCounter = 0;
   gateMats.forEach(m => m.color.set('#ffffff'));
   gateObjs.forEach(o => { o.flash = 0; });
+  if (T.burgers) T.burgers.forEach(b => { b.got = false; if (b.mesh) b.mesh.visible = true; });
   camH = car.h; camInit = false; clearFx();
   setupGhosts(); updateCpHud();
   const toBeat = boardEntries().filter(e => ghostSel.includes(e.id)).sort((a, b) => a.t - b.t)[0];
@@ -3381,7 +3436,7 @@ async function pullAccount() {
       wallet.coins = Math.max(0, Math.floor(d.coins));
       wallet.owned = [...new Set([...(Array.isArray(d.owned) ? d.owned : []), ...wallet.owned])].filter(id => COS[id]);
       wallet.cos = cleanCos(d.cos);
-      mergeStats(d);
+      mergeStats(d); setTimeout(syncSecretBests, 3000);
       saveWallet(false); refreshMyCosmetics();
     } else saveWallet();   // first sign-in on this account: bring this browser's coins along
     if (typeof d.paint === 'string' && decodePaint(d.paint, MY_PAINT)) { store.set('ds:paint', d.paint); refreshMyPaint(); }
@@ -3583,7 +3638,7 @@ function courseInfo(key) {
 function courseLabel(L) {
   if (!L) return '';
   const info = courseInfo(L.key);
-  if (L.key === DOGE_KEY) return '🐕 Doge Sky Run · secret parkour';
+  if (secretFor(L.key)) { const SL = SECRETS[secretFor(L.key)]; return SL.icon + ' ' + SL.name + ' · secret level'; }
   if (L.course === 'random' || !L.course) return 'Random route' + (info ? ' · ' + info.name : '');
   return (L.course === todayKey ? "Today's route" : prettyDate(L.course)) + (info ? ' · ' + info.name + ' · ' + (info.length / 1000).toFixed(2) + ' km' : '');
 }
@@ -3594,7 +3649,7 @@ function courseOptions(sel) {
     h += `<option value="${k}"${sel === k ? ' selected' : ''}>${d === 0 ? 'Today · ' : ''}${prettyDate(k)}${info ? ' · ' + info.name : ''}</option>`;
   }
   // beat the Doge Sky Run once and you can host it (or keep it selected if the party already has it)
-  if (store.get('ds:dogePaint', false) || sel === DOGE_KEY) h += `<option value="${DOGE_KEY}"${sel === DOGE_KEY ? ' selected' : ''}>🐕 Doge Sky Run (secret)</option>`;
+  for (const k in SECRETS) { const SL = SECRETS[k]; if (store.get(SL.done, false) || sel === SL.key) h += `<option value="${SL.key}"${sel === SL.key ? ' selected' : ''}>${SL.icon} ${SL.name} (secret)</option>`; }
   return h;
 }
 function mpMe() { return { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, seen: Math.round(srvNow()), joined: Math.round(srvNow()), ping: mp.ping || null }; }
@@ -3897,7 +3952,7 @@ async function mpTrySpectate(liveId) {
     if (!mp.spec || mp.phase !== 'queue') return;
     raceKey = L.key;
     buildCourse(L.key);
-    T.rival = T.parkour ? null : simulateRival(); T.ultra = null;
+    T.rival = T.secret ? null : simulateRival(); T.ultra = null;
     mp.players = Object.entries(L.players || {}).filter(([uid, p]) => p && L.startAt - (p.seen || 0) < MP_STALE).map(([uid, p]) => ({ uid, name: cleanName(p.name) || 'Driver', color: cleanColor(p.color) }));
     const keepId = mp.id; mp.id = liveId; mp.bots = mpBots(mp.players.length, L.bots); mp.id = keepId;
     mp.remote = new Map();
@@ -3990,7 +4045,7 @@ async function mpStart() {
   try {
     raceKey = L.key;
     buildCourse(L.key);
-    T.rival = T.parkour ? null : simulateRival(); T.ultra = null;
+    T.rival = T.secret ? null : simulateRival(); T.ultra = null;
   } catch (e) { console.error(e); mpReset(); toast('Could not build the multiplayer route'); loadRace(todayKey); return; }
   mp.bots = mpBots(mp.players.length, L.bots);
   mp.unsub.push(net.db.collection('lobbies/' + mp.id + '/cars').onSnapshot((snap) => {
@@ -4232,34 +4287,107 @@ addEventListener('focus', dogeCheck);
 
 // The parkour level: a fixed route lifted high above the valley, with gaps cut into the road, launch ramps
 // before them and boost pads leading in. Fall off and you're back at the last checkpoint.
-const SKY = 32, DOGE_KEY = 'doge-parkour';
+const SKY = 32, DOGE_KEY = 'doge-parkour', CHEEMS_KEY = 'cheems-burgir';
+const CHEEMS_URL = 'https://cdn.jsdelivr.net/gh/foopgloop/Swervy@main/cheems.png';
+// every secret level: its course key, name, and where its best time lives in this browser
+const SECRETS = {
+  doge: { key: DOGE_KEY, name: 'Doge Sky Run', icon: '🐕', best: 'ds:dogeBest', found: 'ds:secretFound', done: 'ds:dogePaint', img: () => DOGE_URL },
+  cheems: { key: CHEEMS_KEY, name: 'Cheems Burgir Bonk', icon: '🍔', best: 'ds:cheemsBest', found: 'ds:cheemsFound', done: 'ds:cheemsDone', img: () => CHEEMS_URL }
+};
+const secretFor = (key) => Object.keys(SECRETS).find(k => SECRETS[k].key === key) || null;
 function inGap(s) { if (!T.gaps) return false; for (const g of T.gaps) if (s > g.s0 && s < g.s1) return true; return false; }
-function loadSecret() {
+function loadSecret(level) {
   if (mp.active || mp.spec) return;
+  level = SECRETS[level] ? level : 'doge';
+  const SL = SECRETS[level];
   closeModal(); closeMenu(); hideCards();
   $('#hud').hidden = true; $('#touch').hidden = true;
-  $('#title').hidden = false; $('#t-eyebrow').textContent = 'Secret level'; $('#t-name').textContent = 'Summoning the Doge…'; $('#b-race').disabled = true;
+  $('#title').hidden = false; $('#t-eyebrow').textContent = 'Secret level'; $('#t-name').textContent = level === 'cheems' ? 'Hemlo… cooking burgirs…' : 'Summoning the Doge…'; $('#b-race').disabled = true;
   state = 'loading';
   setTimeout(() => {
     try {
-      raceKey = DOGE_KEY;
-      buildCourse(DOGE_KEY);
+      raceKey = SL.key;
+      buildCourse(SL.key);
     } catch (e) { showLoadError(e); return; }
-    secret.active = true;
+    secret.active = true; secret.level = level;
     ghostSel = [];
     restart();
-    toast('Doge Sky Run · jump the gaps, don\'t fall!');
+    toast(level === 'cheems' ? 'Cheems Burgir Bonk · much floaty, eat all burgirs! 🍔 = −0.5s' : 'Doge Sky Run · jump the gaps, don\'t fall!');
   }, 30);
 }
 // any course key: the Doge Sky Run is turned into the parkour level after its road is built
 function buildCourse(key) {
   buildTrackData(key);
   if (key === DOGE_KEY) makeParkour();
+  if (key === CHEEMS_KEY) makeCheems();
   buildWorld(); clearFx();
-  if (T.parkour) world.add(buildPads());
+  if (T.pads) world.add(buildPads());
+  if (T.burgers) world.add(buildCheemsDecor());
+}
+// Cheems Burgir Bonk: moon gravity, a big ramp every few hundred metres, burgirs floating over the road
+// (each one eaten takes half a second off your time), boost pads and giant Cheems billboards cheering you on
+function makeCheems() {
+  T.secret = true; T.shortcuts = []; T.name = 'Cheems Burgir Bonk'; T.grav = 0.55;
+  const rampLen = Math.ceil(9 / T.ds), ramps = T.ramps.slice(), pads = [], burgers = [];
+  const clear = (a, b) => T.cps.every(c => c < a - 12 || c > b + 8) && ramps.every(r => r.i1 < a - 30 || r.i0 > b + 30);
+  for (let a = 70; a < T.N - 70; a += 4) {
+    let bend = 0; for (let k = a - 10; k < a + rampLen + 20; k++) bend += Math.abs(wrapA(T.HEAD[k + 1] - T.HEAD[k]));
+    if (bend > 0.6 || !clear(a, a + rampLen)) continue;
+    ramps.push({ i0: a, i1: a + rampLen, s0: a * T.ds, s1: (a + rampLen) * T.ds, h: 3.4 });
+    pads.push({ i0: a - 12, i1: a - 7 });
+    a += 60;
+  }
+  ramps.sort((p, q) => p.i0 - q.i0);
+  // burgirs: little zig-zag trails, some floating high after ramps so you have to fly for them
+  for (let i = 40; i < T.N - 30; i += 22) {
+    const afterRamp = ramps.find(r => i > r.i1 && i < r.i1 + 20);
+    burgers.push({ i, lat: Math.sin(i * 0.37) * 3.2, up: afterRamp ? 4.5 : 1.3, got: false });
+  }
+  T.ramps = ramps; T.pads = pads; T.burgers = burgers;
+}
+function buildCheemsDecor() {
+  const grp = new THREE.Group();
+  const bun = new THREE.MeshLambertMaterial({ color: 0xe8a445, emissive: 0x3a2008 }), patty = new THREE.MeshLambertMaterial({ color: 0x5a3018 });
+  const lettuce = new THREE.MeshLambertMaterial({ color: 0x5ed14a }), cheese = new THREE.MeshLambertMaterial({ color: 0xffcf33, emissive: 0x332200 });
+  const cyl = (r, h) => new THREE.CylinderGeometry(r, r, h, 16);
+  for (const b of T.burgers) {
+    const g = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.SphereGeometry(0.62, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), bun); top.position.y = 0.3;
+    const p1 = new THREE.Mesh(cyl(0.64, 0.2), patty); p1.position.y = 0.12;
+    const ch = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 1.2), cheese); ch.position.y = 0.25; ch.rotation.y = 0.4;
+    const le = new THREE.Mesh(cyl(0.7, 0.06), lettuce); le.position.y = 0.0;
+    const bot = new THREE.Mesh(cyl(0.6, 0.2), bun); bot.position.y = -0.12;
+    g.add(top, p1, ch, le, bot);
+    const k = b.i, x = T.X[k] - T.TZ[k] * b.lat, z = T.Z[k] + T.TX[k] * b.lat;
+    g.position.set(x, T.Y[k] + b.up, z); g.scale.setScalar(1.3);
+    b.mesh = g; b.x = x; b.y = T.Y[k] + b.up; b.z = z;
+    grp.add(g);
+  }
+  // Cheems billboards along the road
+  const tex = new THREE.TextureLoader().load(CHEEMS_URL); tex.crossOrigin = 'anonymous';
+  const face = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
+  const post = new THREE.MeshLambertMaterial({ color: 0x6b4a2e });
+  for (let i = 60, n = 0; i < T.N - 20; i += 95, n++) {
+    const side = n % 2 ? 1 : -1, lat = side * (HALF_W + 9);
+    const x = T.X[i] - T.TZ[i] * lat, z = T.Z[i] + T.TX[i] * lat, y = terrainH(x, z);
+    const b = new THREE.Group(); b.position.set(x, y, z); b.rotation.y = T.HEAD[i] + Math.PI + side * 0.5;
+    const pic = new THREE.Mesh(new THREE.PlaneGeometry(7, 7), face); pic.position.y = 7.5; b.add(pic);
+    for (const px of [-2, 2]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4.5, 0.3), post); m.position.set(px, 2.25, -0.05); b.add(m); }
+    grp.add(b);
+  }
+  return grp;
+}
+function nomSound() {
+  if (!settings.sound || !audio.ctx) return;
+  try {
+    const ctx = audio.ctx, t = ctx.currentTime;
+    [0, 0.09].forEach((at, i) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square';
+      o.frequency.setValueAtTime(i ? 520 : 380, t + at); o.frequency.exponentialRampToValueAtTime(i ? 300 : 220, t + at + 0.08);
+      g.gain.setValueAtTime(0.06, t + at); g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.09); o.connect(g); g.connect(ctx.destination); o.start(t + at); o.stop(t + at + 0.1); });
+  } catch (e) {}
 }
 function makeParkour() {
-  T.parkour = true; T.shortcuts = []; T.name = 'Doge Sky Run';
+  T.parkour = true; T.secret = true; T.shortcuts = []; T.name = 'Doge Sky Run';
   for (let i = 0; i < T.N; i++) { T.Y[i] += SKY; T.S[i] = 0; }   // all asphalt up in the sky
   T.runs = [{ s: 0, from: 0, to: T.N - 1 }];
   // jumps: a ramp, then a gap, spaced along the route away from the start, checkpoints and finish
@@ -4291,24 +4419,99 @@ function buildPads() {
 }
 // called every physics step while racing the secret level
 function secretStep() {
-  if (!T.parkour || state !== 'racing') return;
+  if (T.burgers) {
+    const spin = performance.now() / 600;
+    for (const b of T.burgers) {
+      if (!b.mesh) continue;
+      b.mesh.rotation.y = spin + b.i; b.mesh.position.y = b.y + Math.sin(spin * 2 + b.i) * 0.25;
+      if (b.got || state !== 'racing') continue;
+      const dx = car.x - b.x, dy = car.y + 0.6 - b.y, dz = car.z - b.z;
+      if (dx * dx + dz * dz < 7 && Math.abs(dy) < 2.4) {
+        b.got = true; b.mesh.visible = false; raceTime = Math.max(0, raceTime - 0.5); nomSound();
+        const got = T.burgers.filter(q => q.got).length;
+        toast('🍔 ' + got + '/' + T.burgers.length + ' · −0.5s' + (got === T.burgers.length ? ' · ALL BURGIRS!' : ''));
+      }
+    }
+  }
+  if (!T.pads || state !== 'racing') return;
   for (const p of T.pads) if (car.idx >= p.i0 && car.idx < p.i1 && Math.abs(car.lat) < RAMP_HALF + 1 && car.grounded) {
     car.boost = 3; const fx = Math.sin(car.h), fz = Math.cos(car.h), v = car.vx * fx + car.vz * fz;
     if (v < 30) { car.vx += fx * 0.35; car.vz += fz * 0.35; }
   }
-  if (car.y < T.Y[Math.min(car.idx, T.N - 1)] - 9) { recover(); toast('Splash! Back to the last checkpoint'); }
+  if (T.parkour && car.y < T.Y[Math.min(car.idx, T.N - 1)] - 9) { recover(); toast('Splash! Back to the last checkpoint'); }
 }
 function secretFinish() {
-  unlock('doge');
-  const t = +finishTime.toFixed(3), best = store.get('ds:dogeBest', null), first = !store.get('ds:dogePaint', false);
-  if (best == null || t < best) store.set('ds:dogeBest', t);
-  store.set('ds:dogePaint', true); fillPresetSelect();
+  const level = secret.level || 'doge', SL = SECRETS[level];
+  unlock(level === 'cheems' ? 'burgir' : 'doge');
+  const t = +finishTime.toFixed(3), best = store.get(SL.best, null), first = !store.get(SL.done, false);
+  if (best == null || t < best) { store.set(SL.best, t); postSecretBest(level, t); }
+  store.set(SL.done, true); if (level === 'doge') fillPresetSelect();
   if (first) { awardCoins(100, 'secret level cleared'); confetti(); }
-  secret.result = { t, best: best == null ? t : Math.min(best, t), first };
+  const burgers = T.burgers ? T.burgers.filter(b => b.got).length : 0;
+  if (T.burgers && burgers === T.burgers.length) unlock('allburgir');
+  secret.result = { t, best: best == null ? t : Math.min(best, t), first, level, burgers, total: T.burgers ? T.burgers.length : 0 };
   setTimeout(() => { if (secret.active) openModal('secretdone'); }, 1100);
 }
+// secret-level bests go on the driver's account (drivers/<uid>.secret.<level>) for the secret leaderboards
+function postSecretBest(level, t) {
+  if (!net.db || !net.uid || !onlineName()) return;
+  const cur = ((net.drivers.get(net.uid) || {}).secret || {})[level];
+  if (typeof cur === 'number' && cur <= t) return;
+  netQueue(() => net.db.doc('drivers/' + net.uid).update({ ['secret.' + level]: t })).catch(() => {});
+}
+function syncSecretBests() { for (const k in SECRETS) { const b = store.get(SECRETS[k].best, null); if (typeof b === 'number') postSecretBest(k, b); } }
+function renderSecretBoard(list, sub) {
+  const found = Object.keys(SECRETS).filter(k => store.get(SECRETS[k].found, false));
+  if (!SECRETS[secretTab]) secretTab = 'doge';
+  const SL = SECRETS[secretTab], known = found.includes(secretTab);
+  sub.textContent = '';
+  const seg = document.createElement('div'); seg.className = 'seg mb-sec';
+  for (const k in SECRETS) { const b = document.createElement('button'); b.textContent = store.get(SECRETS[k].found, false) ? SECRETS[k].icon + ' ' + SECRETS[k].name : '🔒 ???'; b.setAttribute('aria-pressed', String(k === secretTab)); b.onclick = () => { secretTab = k; renderSecretBoard(list, sub); }; seg.append(b); }
+  sub.append(seg, document.createElement('br'), document.createTextNode(known ? 'Best time per driver on this secret level.' : 'Find this secret level to see its name. Hint: someone on the team likes being clicked.'));
+  const rows = [];
+  for (const [uid, d] of net.drivers) { const t = d && d.secret && d.secret[secretTab]; if (typeof t === 'number' && t > 5) rows.push({ uid, d, t }); }
+  const mine = store.get(SL.best, null);
+  if (typeof mine === 'number' && !rows.some(r => r.uid === net.uid)) rows.push({ uid: net.uid || 'me', d: { name: onlineName() || 'You', color: settings.color }, t: mine });
+  rows.sort((a, b) => a.t - b.t);
+  list.textContent = '';
+  if (!rows.length) { const li = document.createElement('li'); li.innerHTML = '<span></span><span class="nm">No times yet. Be the first!</span>'; list.append(li); return; }
+  rows.slice(0, 100).forEach((r, i) => {
+    const li = document.createElement('li'); const me = r.uid === net.uid || r.uid === 'me'; if (me) li.className = 'me';
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
+    const nm = document.createElement('span'); nm.className = 'nm';
+    const icon = carIcon({ id: 'drv:' + r.uid, uid: r.uid, me, color: cleanColor(r.d.color) });
+    if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
+    nm.append(document.createTextNode(cleanName(r.d.name) || 'Driver'));
+    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = fmt(r.t);
+    li.append(rk, nm, tm); list.append(li);
+  });
+}
+let secretTab = 'doge';
 function secretExit() { secret.active = false; closeModal(); loadRace(todayKey); }
 
+
+// Cheems: tap "fesse" in Settings. He rises from the bottom corner, chats, and on the 5th tap gets bonked
+const CHEEMS_LINES = ['hemlo?', 'am cheems', 'fesse is frend', 'u want burgir?'];
+let cheemsTaps = 0, cheemsTimer = 0;
+function cheemsTap() {
+  const f = $('#fesse'); if (f) { f.classList.remove('wig'); void f.offsetWidth; f.classList.add('wig'); }
+  clearTimeout(cheemsTimer); cheemsTimer = setTimeout(() => { cheemsTaps = 0; const el = $('#cheems-peek'); if (el) { el.classList.remove('in', 'up'); setTimeout(() => el.remove(), 600); } }, 6000);
+  let el = $('#cheems-peek');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'cheems-peek'; el.className = 'cheems-peek';
+    el.innerHTML = `<img src="${CHEEMS_URL}" alt="" crossorigin="anonymous"><span class="say"></span>`;
+    document.body.append(el); void el.offsetWidth;
+  }
+  cheemsTaps++;
+  secretSound(Math.min(cheemsTaps, 2));
+  if (cheemsTaps < 5) { el.classList.add('in'); if (cheemsTaps >= 3) el.classList.add('up'); el.querySelector('.say').textContent = CHEEMS_LINES[cheemsTaps - 1]; return; }
+  clearTimeout(cheemsTimer); cheemsTaps = 0;
+  el.querySelector('.say').textContent = 'BONK!';
+  el.classList.add('bonk'); document.body.classList.add('bonk-shake'); hornSound(); comicText('BONK');
+  setTimeout(() => document.body.classList.remove('bonk-shake'), 450);
+  store.set('ds:cheemsFound', true); confetti();
+  setTimeout(() => { el.remove(); openModal('cheems'); }, 1400);
+}
 
 /* ---------------- records, achievements and easter eggs ---------------- */
 // records are lifetime stats kept in the browser and on the account (drivers/<uid>.stats, .ach)
@@ -4346,7 +4549,9 @@ const ACHS = [
   ['goose', '🪿', 'Untitled Goose', '???', 30, null, true],
   ['wow', '✨', 'Wow', '???', 30, null, true],
   ['moonwalk', '🕺', 'Moonwalker', '???', 75, null, true],
-  ['flasher', '🔦', 'Flasher', '???', 75, null, true]
+  ['flasher', '🔦', 'Flasher', '???', 75, null, true],
+  ['burgir', '🍔', 'Hemlo', '???', 100, null, true],
+  ['allburgir', '🍟', 'Much burgir', '???', 100, null, true]
 ];
 let achDirty = false;
 function saveStats() { store.set('ds:stats', stats); store.set('ds:ach', [...achGot]); achDirty = true; }
@@ -5298,7 +5503,7 @@ function toast(msg) {
 
 /* modal */
 let boardTab = 'today';
-function renderModalBoard() { if (boardTab === 'mp') renderMpRankings($('#mb-list'), $('#mb-sub')); else if (boardTab === 'rank') renderRankings($('#mb-list'), $('#mb-sub')); else renderBoard($('#mb-list'), $('#mb-sub')); }
+function renderModalBoard() { if (boardTab === 'secret') renderSecretBoard($('#mb-list'), $('#mb-sub')); else if (boardTab === 'mp') renderMpRankings($('#mb-list'), $('#mb-sub')); else if (boardTab === 'rank') renderRankings($('#mb-list'), $('#mb-sub')); else renderBoard($('#mb-list'), $('#mb-sub')); }
 let modalKind = null, pendingRace = false, askedName = false;
 function closeModal() { const k = modalKind; $('#modal').hidden = true; modalKind = null; clearInterval(modalTimer); if ((k === 'mp' || k === 'mpwait') && !mp.spec) mpCancel(); else if (k === 'mpres' && mp.active) mpWatchStart(); }
 let modalTimer = 0;
@@ -5371,7 +5576,8 @@ function openModal(kind) {
       <div class="setrow"><b>Ghosts</b>${seg('ghosts', [[true, 'Show'], [false, 'Hide']])}</div>
       <div class="setrow"><b>Camera</b>${seg('camera', [[0, 'Chase'], [1, 'Far'], [2, 'Hood']])}</div>
       <p class="sub">Resolution adjusts itself to keep the game smooth, and shadows switch off if your device still struggles. Low graphics starts without shadows, at lower resolution, with less grass. The physics are the same at every setting.</p>
-      <p class="credits">Made by nowdogs and fesse</p>`;
+      <p class="credits">Made by nowdogs and <button type="button" class="fesse" id="fesse">fesse</button></p>`;
+    $('#fesse').onclick = () => cheemsTap();
     c.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
       const key = b.parentElement.dataset.key, raw = b.dataset.v;
       const v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
@@ -5405,12 +5611,13 @@ function openModal(kind) {
       const runs = getRuns(k);
       rows += `<li><button data-k="${k}"><span class="no">#${raceNo(k)}</span><span class="${k === raceKey ? 'cur' : ''}">${d === 0 ? 'Today · ' : ''}${prettyDate(k)}${k === raceKey ? ' · loaded' : ''}</span><span class="tm">${runs.length ? fmt(runs[0].t) : '—'}</span></button></li>`;
     }
-    const secretRow = store.get('ds:secretFound', false) ? `<h3>Secret</h3><ul class="past"><li><button id="past-secret"><span class="no">🐕</span><span>Doge Sky Run</span><span class="tm">${store.get('ds:dogeBest', null) != null ? fmt(store.get('ds:dogeBest', null)) : '—'}</span></button></li></ul>` : '';
+    const secLis = Object.keys(SECRETS).filter(k => store.get(SECRETS[k].found, false)).map(k => { const b = store.get(SECRETS[k].best, null); return `<li><button data-secret="${k}"><span class="no">${SECRETS[k].icon}</span><span>${SECRETS[k].name}</span><span class="tm">${b != null ? fmt(b) : '—'}</span></button></li>`; }).join('');
+    const secretRow = secLis ? `<h3>Secret</h3><ul class="past">${secLis}</ul>` : '';
     c.innerHTML = `<h2>Races</h2><p class="sub">Every day has its own route. A new one unlocks at midnight.</p>${secretRow}<h3>Coming up</h3><ul class="past">${upRows}</ul><h3>Today and past races</h3><ul class="past">${rows}</ul>`;
     const tick = () => document.querySelectorAll('[data-unlock]').forEach(el => { el.textContent = unlockIn(el.dataset.unlock); });
     clearInterval(modalTimer); modalTimer = setInterval(tick, 1000);
     c.querySelectorAll('.past button[data-k]').forEach(b => b.onclick = () => { closeModal(); loadRace(b.dataset.k); });
-    const sb = $('#past-secret'); if (sb) sb.onclick = () => loadSecret();
+    c.querySelectorAll('[data-secret]').forEach(b => b.onclick = () => loadSecret(b.dataset.secret));
   } else if (kind === 'signin') {
     const racing = pendingRace;
     c.innerHTML = `<h2>Sign in</h2>
@@ -5532,10 +5739,20 @@ function openModal(kind) {
     $('#sec-later').onclick = () => closeModal();
     $('#modal').hidden = false;
     return;
+  } else if (kind === 'cheems') {
+    c.innerHTML = `<div class="secret-hero"><img src="${CHEEMS_URL}" alt="" crossorigin="anonymous"></div><h2>Hemlo. U found me.</h2>
+      <p class="sub">Welcome to <b>Cheems Burgir Bonk</b>: moon gravity, big ramps and burgirs floating over the road. Each burgir you eat takes 0.5 s off your time, and some are way up in the air. Beat it to unlock the <b>Cheems</b> hood ornament in the shop.</p>
+      <div class="row2"><button class="btn go" type="button" id="sec-go">Race it</button><button class="btn" type="button" id="sec-later">Later</button></div>`;
+    $('#sec-go').onclick = () => loadSecret('cheems');
+    $('#sec-later').onclick = () => closeModal();
+    $('#modal').hidden = false;
+    return;
   } else if (kind === 'secretdone') {
-    const r = secret.result || {};
-    c.innerHTML = `<div class="secret-hero"><img src="${DOGE_URL}" alt="" crossorigin="anonymous"></div><h2>${r.first ? 'Such skill. Wow.' : 'Sky Run cleared'}</h2>
-      <p class="sub">${fmt(r.t)}${r.best != null && r.best < r.t ? ' · best ' + fmt(r.best) : ''}. ${r.first ? 'You unlocked the <b>Doge</b> paint (Customize → Paint → Presets) and 100 🪙.' : 'The Doge paint is in Customize → Paint → Presets.'}</p>
+    const r = secret.result || {}, ch = r.level === 'cheems';
+    const reward = ch ? (r.first ? 'You unlocked the <b>Cheems</b> hood ornament (Customize → Shop → Hood) and 100 🪙.' : 'The Cheems hood ornament is in Customize → Shop → Hood.') + ` Burgirs: ${r.burgers}/${r.total}.`
+      : r.first ? 'You unlocked the <b>Doge</b> paint (Customize → Paint → Presets) and 100 🪙.' : 'The Doge paint is in Customize → Paint → Presets.';
+    c.innerHTML = `<div class="secret-hero"><img src="${ch ? CHEEMS_URL : DOGE_URL}" alt="" crossorigin="anonymous"></div><h2>${ch ? (r.first ? 'Much burgir. Very bonk.' : 'Burgir Bonk cleared') : r.first ? 'Such skill. Wow.' : 'Sky Run cleared'}</h2>
+      <p class="sub">${fmt(r.t)}${r.best != null && r.best < r.t ? ' · best ' + fmt(r.best) : ''}. ${reward}</p>
       <div class="row2"><button class="btn go" type="button" id="sec-again">Race again</button><button class="btn" type="button" id="sec-back">Back to daily race</button></div>`;
     $('#sec-again').onclick = () => { closeModal(); restart(); };
     $('#sec-back').onclick = () => secretExit();
@@ -5592,7 +5809,7 @@ function openModal(kind) {
     return;
   } else if (kind === 'board') {
     c.innerHTML = `<h2>Leaderboard</h2>
-      <div class="seg mb-tabs" id="mb-tabs"><button data-v="today" aria-pressed="${boardTab === 'today'}">Today</button><button data-v="rank" aria-pressed="${boardTab === 'rank'}">Rankings</button><button data-v="mp" aria-pressed="${boardTab === 'mp'}">Multiplayer</button></div>
+      <div class="seg mb-tabs" id="mb-tabs"><button data-v="today" aria-pressed="${boardTab === 'today'}">Today</button><button data-v="rank" aria-pressed="${boardTab === 'rank'}">Rankings</button><button data-v="mp" aria-pressed="${boardTab === 'mp'}">Multiplayer</button><button data-v="secret" aria-pressed="${boardTab === 'secret'}">Secret</button></div>
       <p class="sub" id="mb-sub"></p><ol class="board${boardTab !== 'today' ? ' rank' : ''}" id="mb-list"></ol>`;
     c.querySelectorAll('#mb-tabs button').forEach(b => b.onclick = () => { boardTab = b.dataset.v; openModal('board'); });
     renderModalBoard();
