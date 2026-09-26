@@ -4056,6 +4056,9 @@ function mpRenderRemote() {
   const now = performance.now();
   for (const [uid, r] of mp.remote) {
     const g = mp.ghosts.get(uid); if (!g || !r.s) continue;
+    // pick up cosmetics they change mid-session (e.g. Moe unlocked after the race was set up)
+    const dd = net.drivers.get(uid), cos = cleanCos(dd && dd.cos), sig = cosSig(cos);
+    if (g.cosSig !== sig) { g.cosSig = sig; applyCosmetics(g.mesh, cos, false); }
     const s = r.s, dt = Math.min(0.5, (now - r.at) / 1000), k = Math.min(1, (now - (r.last || now)) / 1000 * 12 + 0.05);
     r.last = now;
     const tx = s.x + (s.vx || 0) * dt, ty = s.y + (s.vy || 0) * dt * 0.5, tz = s.z + (s.vz || 0) * dt, th = s.h + (s.wy || 0) * dt;
