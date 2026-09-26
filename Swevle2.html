@@ -2686,7 +2686,7 @@ function setGrid(on) {
 }
 
 function openGarage() {
-  if (!T || !carMesh || state === 'loading' || mp.active || mp.spec || secret.active) return;
+  if (!T || !carMesh || state === 'loading' || mp.active || mp.spec) return;
   closeModal(); closeMenu(); hideCards();
   $('#hud').hidden = true; $('#touch').hidden = true;
   car = spawnCar(); state = 'garage';
@@ -2716,10 +2716,10 @@ function renderShop() {
   grid.append(none);
   COS_ITEMS.filter(it => it.slot === shopSlot && (!it.secret || wallet.owned.includes(it.id))).forEach(it => {
     const owned = wallet.owned.includes(it.id), on = eq === it.id, pv = cosPreview && cosPreview.id === it.id;
-    if (it.lock && !owned && !store.get(it.lock, false)) {   // still a mystery: a lock and ??? until its secret is found
+    if (it.lock && !owned && !store.get(it.lock, false) && !(it.lockAch && achGot.has(it.lockAch))) {   // still a mystery: a lock and ??? until its secret is found
       const el = document.createElement('div'); el.className = 'gs-item locked'; el.title = 'Secret';
       el.innerHTML = '<span class="ic">🔒</span><span class="nm">???</span><small>Secret</small>';
-      el.onclick = () => toast('🔒 Find a secret to unlock this one');
+      el.onclick = () => toast('🔒 ' + (it.hint || 'Find a secret to unlock this one'));
       grid.append(el); return;
     }
     const el = document.createElement('div'); el.className = 'gs-item' + (on ? ' eq' : '') + (pv ? ' pv' : '') + (owned ? ' own' : ''); el.tabIndex = 0; el.title = it.name;
@@ -3033,18 +3033,24 @@ const COS_ITEMS = [
   { id: 'flame', slot: 'hood', name: 'Flame', price: 80, icon: '🔥' },
   { id: 'eagle', slot: 'hood', name: 'Golden eagle', price: 140, icon: '🦅' },
   { id: 'crown', slot: 'hood', name: 'Crown', price: 180, icon: '👑' },
-  { id: 'cheems', slot: 'hood', name: 'Cheems', price: 200, icon: '🐶', lock: 'ds:cheemsDone' },   // clear the Cheems secret level to buy
+  { id: 'cheems', slot: 'hood', name: 'Cheems', price: 200, icon: '🐶', lock: 'ds:cheemsDone', lockAch: 'burgir' },   // clear the Cheems secret level to buy
+  { id: 'disco', slot: 'hood', name: 'Disco ball', price: 320, icon: '🪩' },
   { id: 'stacks', slot: 'bay', name: 'Intake stacks', price: 140, icon: '🔩' },
   { id: 'turbo', slot: 'bay', name: 'Twin turbos', price: 180, icon: '🌀' },
   { id: 'blower', slot: 'bay', name: 'Supercharger', price: 220, icon: '⚙️' },
+  { id: 'brain', slot: 'bay', name: 'Big brain', price: 350, icon: '🧠' },
   { id: 'cone', slot: 'roof', name: 'Traffic cone', price: 40, icon: '🚧' },
   { id: 'duck', slot: 'roof', name: 'Rubber duck', price: 60, icon: '🦆' },
   { id: 'cactus', slot: 'roof', name: 'Cactus', price: 70, icon: '🌵' },
   { id: 'dice', slot: 'roof', name: 'Fuzzy dice', price: 80, icon: '🎲' },
   { id: 'snowman', slot: 'roof', name: 'Mini snowman', price: 90, icon: '⛄' },
   { id: 'shiba', slot: 'roof', name: 'Shiba Inu', price: 250, icon: '🐕' },
+  { id: 'ufo', slot: 'roof', name: 'UFO', price: 420, icon: '🛸' },
+  { id: 'throne', slot: 'roof', name: 'Golden throne', price: 500, icon: '🚽' },
   { id: 'ducktail', slot: 'rear', name: 'Ducktail', price: 90, icon: '🪽' },
   { id: 'wing', slot: 'rear', name: 'GT wing', price: 160, icon: '🏁' },
+  { id: 'rocket', slot: 'rear', name: 'Rocket booster', price: 380, icon: '🚀' },
+  { id: 'bigskinny', slot: 'rear', name: 'BIG SKINNY', price: 600, icon: '🍙', lock: 'ds:allBurgir', lockAch: 'allburgir', hint: 'Eat every burgir somewhere secret' },
   { id: 'moe', slot: 'rear', name: 'Moe', price: 0, icon: '📻', secret: true },   // only from the Flasher easter egg
   { id: 'num7', slot: 'sticker', name: 'Racing 7', price: 30, icon: '7️⃣' },
   { id: 'bolt', slot: 'sticker', name: 'Lightning', price: 40, icon: '⚡' },
@@ -3158,6 +3164,16 @@ function buildCosmetics(cos, ghost) {
       put(C(0.16, 0.14, 0.12, 12), gold, 0, HY + 0.08, 1.85);
       for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; put(K(0.04, 0.14, 6), gold, Math.cos(a) * 0.14, HY + 0.2, 1.85 + Math.sin(a) * 0.14); put(S(0.03), L(0xd8324a), Math.cos(a) * 0.15, HY + 0.1, 1.85 + Math.sin(a) * 0.15); }
       break;
+    case 'disco': {
+      // a mirror-tiled disco ball on a chrome stalk; it spins and throws coloured glints
+      const tiles = cosMat('discoTiles', () => new THREE.MeshPhongMaterial({ color: 0xdfe6ee, specular: 0xffffff, shininess: 120, flatShading: true, emissive: 0x222233 }));
+      put(C(0.02, 0.03, 0.3, 8), chrome, 0, HY + 0.15, 1.7);
+      const ball = put(new THREE.SphereGeometry(0.2, 14, 10), tiles, 0, HY + 0.46, 1.7); ball.userData.anim = 'spin';
+      const glint = cosMat('discoGlint', () => new THREE.MeshBasicMaterial({ color: 0xff4fd8 }));
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; const g = new THREE.Mesh(B(0.03, 0.03, 0.03), glint); g.position.set(Math.cos(a) * 0.205, (k % 2 ? 0.08 : -0.06), Math.sin(a) * 0.205); ball.add(g); }
+      ball.userData.glint = glint;
+      break;
+    }
     case 'cheems': {
       // a little Cheems cut-out standing on a gold plinth, looking forward
       const face = cosMat('cheemsImg', () => { const t = new THREE.TextureLoader().load(CHEEMS_URL); return new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide }); });
@@ -3217,34 +3233,85 @@ function buildCosmetics(cos, ghost) {
       put(C(0.015, 0.015, 0.4, 5), L(0x6b4a2e), 0.33, RY + 0.72, -0.3, 0, 0, 1.0); put(C(0.015, 0.015, 0.4, 5), L(0x6b4a2e), -0.33, RY + 0.72, -0.3, 0, 0, -1.0);
       put(B(0.3, 0.08, 0.08), L(0xd8281e), 0, RY + 0.84, -0.22); break;
     }
+    case 'ufo': {
+      // a little flying saucer hovering over the roof, lights chasing round the rim, tractor beam below
+      const hull = cosMat('ufoHull', () => new THREE.MeshPhongMaterial({ color: 0xaab4bf, specular: 0xffffff, shininess: 80 }));
+      const dome = cosMat('ufoDome', () => new THREE.MeshPhongMaterial({ color: 0x7ff0c0, transparent: true, opacity: 0.6, shininess: 100 }));
+      const beam = cosMat('ufoBeam', () => new THREE.MeshBasicMaterial({ color: 0x9dffb0, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }));
+      const u = new THREE.Group(); u.position.set(0, RY + 0.75, -0.3); grp.add(u); u.userData.anim = 'hover';
+      const disc = new THREE.Mesh(S(0.5), hull); disc.scale.set(1, 0.22, 1); u.add(disc);
+      const d2 = new THREE.Mesh(S(0.22), dome); d2.position.y = 0.08; d2.scale.set(1, 0.8, 1); u.add(d2);
+      const alien = new THREE.Mesh(S(0.08), cosMat('alien', () => new THREE.MeshLambertMaterial({ color: 0x6fd34a }))); alien.position.y = 0.12; u.add(alien);
+      const rim = new THREE.Group(); u.add(rim); rim.userData.anim = 'spin';
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; const l = new THREE.Mesh(S(0.035), cosMat('ufoL' + (k % 2), () => new THREE.MeshBasicMaterial({ color: k % 2 ? 0xffd23f : 0xff3f7a }))); l.position.set(Math.cos(a) * 0.46, -0.01, Math.sin(a) * 0.46); rim.add(l); }
+      const bm = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.6, 16, 1, true), beam); bm.position.y = -0.34; u.add(bm);
+      u.traverse(m => { m.castShadow = !ghost && m !== bm; });
+      break;
+    }
+    case 'throne': {
+      // a solid gold toilet bolted to the roof. Why? Because you can.
+      put(C(0.2, 0.16, 0.24, 20), gold, 0, RY + 0.12, -0.2);                           // base
+      const bowl = put(S(0.25), gold, 0, RY + 0.34, -0.15); bowl.scale.set(1, 0.55, 1.25);
+      put(new THREE.TorusGeometry(0.2, 0.04, 8, 20), gold, 0, RY + 0.46, -0.13, Math.PI / 2, 0, 0, 1, 1.2, 1);   // seat
+      put(B(0.46, 0.4, 0.18), gold, 0, RY + 0.55, -0.48);                                // tank
+      put(B(0.5, 0.05, 0.22), gold, 0, RY + 0.77, -0.48);                                // lid
+      put(C(0.025, 0.025, 0.12, 8), chrome, 0.16, RY + 0.66, -0.37, Math.PI / 2);        // flush lever
+      const lid = put(B(0.42, 0.03, 0.5), gold, 0, RY + 0.68, -0.4, -1.35); lid.userData.anim = 'flap';
+      break;
+    }
     case 'shiba': {
-      // a standing Shiba Inu: rounded red-sesame coat, cream "urajiro" chest, muzzle, cheeks and eyebrow dots, curled tail
-      const o = L(0xd8843a), dk = L(0xb7652a), cr = L(0xf7ead6), bk = L(0x1c2026), pk = L(0xe07a8a);
-      const z0 = -0.32, y0 = RY;
-      for (const [x, z] of [[0.09, z0 + 0.2], [-0.09, z0 + 0.2], [0.09, z0 - 0.2], [-0.09, z0 - 0.2]]) {
-        put(C(0.045, 0.04, 0.22, 8), o, x, y0 + 0.11, z); put(S(0.05), cr, x, y0 + 0.02, z + 0.02, 0, 0, 0, 1, 0.6, 1.2);
+      // a standing Shiba Inu, like a figurine: slim red-sesame body on long legs, cream "urajiro" on the chest,
+      // belly, legs and face, fox-like muzzle, upright triangle ears, and the curled tail sitting over the back
+      const o = L(0xe08a3c), cr = L(0xf8ecd8), bk = L(0x1a1d22), pk = L(0xd9707e);
+      const z0 = -0.3, y0 = RY, legY = y0 + 0.3;
+      put(S(0.2), o, 0, legY + 0.14, z0, 0, 0, 0, 0.72, 0.68, 1.55);                  // body
+      put(S(0.18), cr, 0, legY + 0.08, z0 + 0.02, 0, 0, 0, 0.62, 0.5, 1.3);           // belly
+      put(S(0.14), cr, 0, legY + 0.14, z0 + 0.22, 0, 0, 0, 0.85, 1.1, 0.8);           // chest
+      put(S(0.11), o, 0, legY + 0.3, z0 + 0.27, -0.7, 0, 0, 0.85, 1.35, 0.85);           // neck, blending chest into head
+      put(S(0.07), cr, 0, legY + 0.24, z0 + 0.31, 0, 0, 0, 1, 1.3, 0.8);               // throat
+      // legs: orange upper, cream lower with paws; a mid-stride pose
+      const leg = (x, z, rx, front) => {
+        const g = new THREE.Group(); g.position.set(x, legY + 0.08, z); g.rotation.x = rx; grp.add(g);
+        const up = new THREE.Mesh(C(0.045, 0.04, 0.2, 10), o); up.position.y = -0.1; g.add(up);
+        const lo = new THREE.Mesh(C(0.036, 0.032, 0.2, 10), cr); lo.position.y = -0.26; lo.rotation.x = front ? 0.08 : -0.18; g.add(lo);
+        const paw = new THREE.Mesh(S(0.04), cr); paw.scale.set(1, 0.55, 1.35); paw.position.set(0, -0.37, 0.02); g.add(paw);
+        g.traverse(m => { m.castShadow = !ghost; });
+      };
+      leg(0.08, z0 + 0.2, 0.18, true); leg(-0.08, z0 + 0.2, -0.12, true);
+      leg(0.085, z0 - 0.21, -0.2, false); leg(-0.085, z0 - 0.21, 0.14, false);
+      // head
+      const hz = z0 + 0.39, hy = legY + 0.44;
+      put(S(0.13), o, 0, hy, hz, 0, 0, 0, 1.08, 0.95, 1);                             // skull
+      put(S(0.1), cr, 0.055, hy - 0.035, hz + 0.055, 0, 0, 0, 0.85, 0.75, 0.9);        // cream cheeks
+      put(S(0.1), cr, -0.055, hy - 0.035, hz + 0.055, 0, 0, 0, 0.85, 0.75, 0.9);
+      put(S(0.06), cr, 0, hy - 0.03, hz + 0.13, 0, 0, 0, 0.95, 0.72, 1.35);            // muzzle
+      put(S(0.024), bk, 0, hy - 0.005, hz + 0.21);                                     // nose
+      put(B(0.07, 0.008, 0.01), bk, 0, hy - 0.06, hz + 0.16);                           // smile
+      put(B(0.03, 0.008, 0.02), pk, 0.012, hy - 0.068, hz + 0.155);                     // tongue tip
+      put(S(0.018), bk, 0.048, hy + 0.03, hz + 0.1, 0, 0, 0, 1, 0.8, 0.6); put(S(0.018), bk, -0.048, hy + 0.03, hz + 0.1, 0, 0, 0, 1, 0.8, 0.6);   // eyes
+      put(S(0.014), cr, 0.05, hy + 0.068, hz + 0.09); put(S(0.014), cr, -0.05, hy + 0.068, hz + 0.09);   // eyebrow dots
+      for (const x of [0.065, -0.065]) {
+        put(K(0.05, 0.12, 3), o, x, hy + 0.13, hz - 0.01, -0.1, Math.PI, x > 0 ? -0.22 : 0.22);          // ears
+        put(K(0.03, 0.08, 3), cr, x * 0.97, hy + 0.12, hz + 0.008, -0.1, Math.PI, x > 0 ? -0.22 : 0.22);
       }
-      put(S(0.2), o, 0, y0 + 0.34, z0, 0, 0, 0, 0.95, 0.85, 1.45);              // body
-      put(S(0.16), cr, 0, y0 + 0.28, z0 + 0.14, 0, 0, 0, 0.9, 0.9, 1.1);        // chest/belly
-      put(S(0.1), o, 0, y0 + 0.43, z0 + 0.24);                                   // neck
-      const hz = z0 + 0.36, hy = y0 + 0.56;
-      put(S(0.15), o, 0, hy, hz, 0, 0, 0, 1.05, 0.95, 1);                        // head
-      put(S(0.1), cr, 0.075, hy - 0.04, hz + 0.08, 0, 0, 0, 0.8, 0.7, 0.8);      // cheeks
-      put(S(0.1), cr, -0.075, hy - 0.04, hz + 0.08, 0, 0, 0, 0.8, 0.7, 0.8);
-      put(S(0.075), cr, 0, hy - 0.035, hz + 0.15, 0, 0, 0, 1, 0.8, 1.2);         // muzzle
-      put(S(0.028), bk, 0, hy - 0.005, hz + 0.235);                              // nose
-      put(B(0.05, 0.012, 0.02), pk, 0, hy - 0.085, hz + 0.19);                   // tongue
-      put(S(0.024), bk, 0.06, hy + 0.035, hz + 0.13); put(S(0.024), bk, -0.06, hy + 0.035, hz + 0.13);   // eyes
-      put(S(0.016), cr, 0.065, hy + 0.08, hz + 0.115); put(S(0.016), cr, -0.065, hy + 0.08, hz + 0.115); // eyebrow dots
-      for (const x of [0.085, -0.085]) {
-        put(K(0.06, 0.13, 4), o, x, hy + 0.15, hz - 0.01, -0.12, Math.PI / 4, x > 0 ? -0.18 : 0.18);     // ears
-        put(K(0.032, 0.08, 4), dk, x, hy + 0.14, hz + 0.012, -0.12, Math.PI / 4, x > 0 ? -0.18 : 0.18);
-      }
-      const tail = put(new THREE.TorusGeometry(0.075, 0.035, 8, 16, Math.PI * 1.7), o, 0, y0 + 0.5, z0 - 0.26, 0, Math.PI / 2, 0.6);
-      put(S(0.04), cr, 0, y0 + 0.57, z0 - 0.2);                                  // tail tip
+      // curled tail over the back
+      const tail = put(new THREE.TorusGeometry(0.075, 0.042, 10, 18, Math.PI * 1.75), o, 0, legY + 0.36, z0 - 0.2, 0, Math.PI / 2, 0.4);
+      put(new THREE.TorusGeometry(0.075, 0.025, 8, 14, Math.PI * 1.1), cr, 0.012, legY + 0.36, z0 - 0.2, 0, Math.PI / 2, 1.3);
       tail.castShadow = !ghost;
       break;
     }
+  }
+  if (cos.bay === 'brain') {
+    // a big pink brain in a glass jar poking through the hood, bubbling
+    const glass = cosMat('jar', () => new THREE.MeshPhongMaterial({ color: 0xbfefff, transparent: true, opacity: 0.35, shininess: 100, specular: 0xffffff, depthWrite: false }));
+    const brainM = cosMat('brain', () => new THREE.MeshLambertMaterial({ color: 0xf29ab2, emissive: 0x2a0a12 }));
+    put(C(0.3, 0.3, 0.08, 20), chrome, 0, HY + 0.04, 0.95);
+    const jar = put(C(0.28, 0.28, 0.55, 20, 1), glass, 0, HY + 0.34, 0.95); jar.castShadow = false;
+    put(C(0.3, 0.3, 0.06, 20), chrome, 0, HY + 0.64, 0.95);
+    const br = new THREE.Group(); br.position.set(0, HY + 0.3, 0.95); grp.add(br); br.userData.anim = 'bob';
+    for (let k = 0; k < 14; k++) { const a = k * 2.4, r = 0.1 + (k % 3) * 0.03; const m = new THREE.Mesh(S(0.08), brainM); m.position.set(Math.cos(a) * r, Math.sin(k) * 0.07, Math.sin(a) * r * 0.8); m.scale.set(1.2, 0.8, 1); br.add(m); }
+    const crease = cosMat('brainC', () => new THREE.MeshLambertMaterial({ color: 0xc8607a }));
+    const cz = new THREE.Mesh(B(0.012, 0.18, 0.4), crease); cz.position.y = 0.04; br.add(cz);
   }
   switch (cos.rear) {
     case 'wing': {
@@ -3253,6 +3320,66 @@ function buildCosmetics(cos, ghost) {
       put(B(2.0, 0.06, 0.4), bl, 0, HY + 0.42, -2.0, -0.12); for (const x of [-1.0, 1.0]) put(B(0.04, 0.24, 0.46), bl, x, HY + 0.42, -2.0); break;
     }
     case 'ducktail': put(B(2.0, 0.08, 0.34), L(0x1c2026), 0, HY + 0.08, -2.02, 0.35); break;
+    case 'rocket': {
+      // twin rocket boosters on the boot with flickering flames
+      const white = L(0xf2f4f6), red = L(0xd8281e);
+      const flame = cosMat('flame', () => new THREE.MeshBasicMaterial({ color: 0xffa52a, transparent: true, opacity: 0.85 }));
+      const core = cosMat('flameC', () => new THREE.MeshBasicMaterial({ color: 0xfff4b0 }));
+      for (const x of [-0.5, 0.5]) {
+        put(C(0.16, 0.16, 0.9, 16), white, x, HY + 0.28, -1.75, Math.PI / 2);
+        put(K(0.16, 0.3, 16), red, x, HY + 0.28, -1.15, Math.PI / 2);
+        put(C(0.13, 0.19, 0.16, 16), chrome, x, HY + 0.28, -2.25, Math.PI / 2);
+        for (let k = 0; k < 3; k++) put(B(0.02, 0.18, 0.22), red, x + Math.cos(k * 2.1) * 0.16, HY + 0.28 + Math.sin(k * 2.1) * 0.16, -2.05, 0, 0, k * 2.1);
+        const f = put(K(0.14, 0.6, 12), flame, x, HY + 0.28, -2.62, -Math.PI / 2); f.castShadow = false; f.userData.anim = 'flame';
+        const fc = put(K(0.07, 0.35, 10), core, x, HY + 0.28, -2.5, -Math.PI / 2); fc.castShadow = false; fc.userData.anim = 'flame';
+      }
+      put(B(1.2, 0.08, 0.3), chrome, 0, HY + 0.16, -1.75);
+      break;
+    }
+    case 'bigskinny': {
+      // BIG SKINNY: a sumo wrestler squatting on the boot in a shiko stance, facing whoever is behind you
+      const skin = L(0xf0c09a), dk = L(0xdba47e), hair = L(0x15171b), belt = L(0x243a6b), bk = L(0x1a1d22), wt = L(0xffffff);
+      const sm = new THREE.Group(); sm.position.set(0, HY + 0.05, -1.72); sm.rotation.y = Math.PI; sm.scale.setScalar(0.95); grp.add(sm);
+      const add = (geo, mat, x, y, z, rx, ry, rz, sx, sy, sz) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0); if (sx) m.scale.set(sx, sy || sx, sz || sx); m.castShadow = !ghost; sm.add(m); return m; };
+      // legs: wide squat, big thighs, calves, feet flat on the boot
+      for (const sx of [-1, 1]) {
+        add(S(0.2), skin, sx * 0.34, 0.42, 0.02, 0, 0, sx * 0.5, 1.35, 0.95, 1.05);          // thigh
+        add(C(0.1, 0.08, 0.34, 12), skin, sx * 0.52, 0.2, 0.06, 0, 0, sx * -0.12);          // calf
+        add(S(0.1), skin, sx * 0.54, 0.03, 0.12, 0, 0, 0, 1, 0.45, 1.6);                    // foot
+      }
+      // torso: huge round belly and chest
+      add(S(0.42), skin, 0, 0.86, 0.04, 0, 0, 0, 1.12, 1, 0.98);                            // body
+      add(S(0.3), skin, 0, 0.72, 0.2, 0, 0, 0, 1.15, 0.95, 0.9);                            // belly
+      add(S(0.035), dk, 0, 0.72, 0.47);                                                     // belly button
+      add(S(0.14), skin, 0.15, 1.08, 0.3, 0, 0, 0, 1.2, 0.8, 0.8); add(S(0.14), skin, -0.15, 1.08, 0.3, 0, 0, 0, 1.2, 0.8, 0.8);   // chest
+      // mawashi belt with the front flap and sagari strings
+      add(new THREE.TorusGeometry(0.44, 0.07, 10, 28), belt, 0, 0.56, 0.04, Math.PI / 2, 0, 0, 1.08, 1, 1);
+      add(B(0.22, 0.26, 0.08), belt, 0, 0.44, 0.47, 0.25);
+      for (let k = -3; k <= 3; k++) add(C(0.012, 0.012, 0.22, 5), belt, k * 0.05, 0.36, 0.5, 0.2);
+      // arms: hands on knees, ready to stomp
+      for (const sx of [-1, 1]) {
+        add(S(0.13), skin, sx * 0.47, 1.05, 0.05, 0, 0, 0, 1, 1.1, 1);                      // shoulder
+        add(C(0.1, 0.09, 0.38, 12), skin, sx * 0.55, 0.84, 0.12, 0.3, 0, sx * 0.25);         // upper arm
+        add(C(0.085, 0.075, 0.3, 12), skin, sx * 0.5, 0.58, 0.22, 0.9, 0, sx * -0.1);        // forearm
+        add(S(0.08), skin, sx * 0.44, 0.45, 0.3, 0, 0, 0, 1, 0.8, 1.1);                      // fist on knee
+      }
+      // head with chonmage topknot and a very determined face
+      add(C(0.11, 0.14, 0.12, 12), skin, 0, 1.22, 0.06);                                    // neck
+      add(S(0.19), skin, 0, 1.4, 0.08, 0, 0, 0, 1, 1.02, 0.95);                             // head
+      add(S(0.2), hair, 0, 1.47, 0.02, 0, 0, 0, 1, 0.8, 0.95);                              // hair cap
+      add(C(0.05, 0.05, 0.2, 10), hair, 0, 1.62, 0.02, Math.PI / 2 - 0.3);                  // topknot
+      add(S(0.055), hair, 0, 1.65, 0.12);
+      add(S(0.07), skin, 0.18, 1.38, 0.06); add(S(0.07), skin, -0.18, 1.38, 0.06);           // ears
+      for (const sx of [-1, 1]) {
+        add(S(0.03), wt, sx * 0.07, 1.42, 0.24); add(S(0.017), bk, sx * 0.07, 1.42, 0.265);
+        add(B(0.08, 0.02, 0.02), hair, sx * 0.075, 1.475, 0.245, 0, 0, sx * 0.35);             // angry brows (inner ends down)
+      }
+      add(S(0.04), dk, 0, 1.36, 0.27, 0, 0, 0, 1, 0.9, 0.8);                                 // nose
+      add(B(0.1, 0.018, 0.02), bk, 0, 1.3, 0.25);                                           // grim mouth
+      add(S(0.07), skin, 0, 1.25, 0.2, 0, 0, 0, 1.3, 0.8, 0.9);                              // chins
+      sm.userData.anim = 'stomp';
+      break;
+    }
     case 'moe': {
       // Moe: a chunky boombox on the boot with speakers that thump to the beat
       const box = new THREE.Group(); box.name = 'moe'; box.position.set(0, HY + 0.3, -1.75); grp.add(box);
@@ -3288,6 +3415,7 @@ function applyCosmetics(root, cos, ghost) {
   const old = tilt.getObjectByName('cosmetics');
   if (old) { tilt.remove(old); old.traverse(m => { if (m.geometry) m.geometry.dispose(); if (ghost && m.material) m.material.dispose(); }); }
   const g = buildCosmetics(cleanCos(cos), ghost);
+  root.userData.anim = []; g.traverse(o => { if (o.userData.anim) { o.userData.base = o.position.clone(); o.userData.rot = o.rotation.clone(); root.userData.anim.push(o); } });
   if (ghost) g.traverse(m => { if (m.material) root.userData.mats.push(m.material); });
   tilt.add(g);
 }
@@ -3387,7 +3515,7 @@ function restart() {
   $('#split').hidden = true;
   car = spawnCar();
   state = 'countdown'; countdownT = 2.4; lastCount = 0; acc = 0;
-  raceTime = 0; clock = 0; finishTime = null; nextCp = 0; lastCpIdx = T.spawnIdx; splits = []; rec = []; recCounter = 0;
+  raceTime = 0; clock = 0; finishTime = null; raceRecovers = 0; nextCp = 0; lastCpIdx = T.spawnIdx; splits = []; rec = []; recCounter = 0;
   gateMats.forEach(m => m.color.set('#ffffff'));
   gateObjs.forEach(o => { o.flash = 0; });
   if (T.burgers) T.burgers.forEach(b => { b.got = false; if (b.mesh) b.mesh.visible = true; });
@@ -3398,8 +3526,10 @@ function restart() {
   if (toBeat) $('#rival-t').textContent = fmt(toBeat.t) + ' · ' + toBeat.name;
   ensureAudio();
 }
+let raceRecovers = 0;
 function recover() {
   if (state !== 'racing') return;
+  raceRecovers++;
   placeCar(car, Math.min(T.N - 20, lastCpIdx + 2));
   camH = car.h;
 }
@@ -3477,9 +3607,10 @@ async function pullAccount() {
       wallet.coins = Math.max(0, Math.floor(d.coins));
       wallet.owned = [...new Set([...(Array.isArray(d.owned) ? d.owned : []), ...wallet.owned])].filter(id => COS[id]);
       wallet.cos = cleanCos(d.cos);
-      mergeStats(d); pullSecrets(d); setTimeout(syncSecretBests, 3000);
+      mergeStats(d);
       saveWallet(false); refreshMyCosmetics();
     } else saveWallet();   // first sign-in on this account: bring this browser's coins along
+    pullSecrets(d); setTimeout(syncSecretBests, 3000);
     if (typeof d.paint === 'string' && decodePaint(d.paint, MY_PAINT)) { store.set('ds:paint', d.paint); refreshMyPaint(); }
     else if (carMesh) carMesh.userData.paint.color.set(settings.color);
     for (const k in (d.best || {})) {
@@ -4358,6 +4489,7 @@ function secretKnown(k) {
 // signing in on a new device: bring secret-level bests and unlocks down from the account
 function pullSecrets(d) {
   if (d && Array.isArray(d.ach) && d.ach.includes('doge')) { store.set('ds:secretFound', true); store.set('ds:dogePaint', true); }
+  if (d && Array.isArray(d.ach) && d.ach.includes('allburgir')) store.set('ds:allBurgir', true);
   if (d && Array.isArray(d.ach) && d.ach.includes('burgir')) { store.set('ds:cheemsFound', true); store.set('ds:cheemsDone', true); }
   if (!d || !d.secret || typeof d.secret !== 'object') return;
   for (const k in SECRETS) {
@@ -4370,7 +4502,7 @@ function pullSecrets(d) {
 }
 const secretFor = (key) => Object.keys(SECRETS).find(k => SECRETS[k].key === key) || null;
 function inGap(s) { if (!T.gaps) return false; for (const g of T.gaps) if (s > g.s0 && s < g.s1) return true; return false; }
-function loadSecret(level) {
+function loadSecret(level, toTitle) {
   if (mp.active || mp.spec) return;
   level = SECRETS[level] ? level : 'doge';
   const SL = SECRETS[level];
@@ -4385,6 +4517,7 @@ function loadSecret(level) {
     } catch (e) { showLoadError(e); return; }
     secret.active = true; secret.level = level;
     ghostSel = [];
+    if (toTitle) { showTitle(); return; }   // picked from Races: show its title card, race when ready
     restart();
     toast(level === 'cheems' ? 'Cheems Burgir Bonk · much floaty, eat all burgirs! 🍔 = −0.5s' : 'Doge Sky Run · jump the gaps, don\'t fall!');
   }, 30);
@@ -4516,7 +4649,7 @@ function nomSound() {
 function makeParkour() {
   T.parkour = true; T.secret = true; T.shortcuts = []; T.name = 'Doge Sky Run';
   for (let i = 0; i < T.N; i++) { T.Y[i] += SKY; T.S[i] = 0; }   // all asphalt up in the sky
-  T.runs = [{ s: 0, from: 0, to: T.N - 1 }];
+  T.runs = [{ s: 0, from: 0, to: T.N - 1 }]; T.share = [1, 0, 0];
   // jumps: a ramp, then a gap, spaced along the route away from the start, checkpoints and finish
   const ramps = [], gaps = [], pads = [], rampLen = Math.ceil(10 / T.ds), gapLen = Math.ceil(13 / T.ds);
   const clear = (a, b) => T.cps.every(c => c < a - 14 || c > b + 10);
@@ -4573,10 +4706,14 @@ function secretFinish() {
   unlock(level === 'cheems' ? 'burgir' : 'doge');
   const t = +finishTime.toFixed(3), best = store.get(SL.best, null), first = !store.get(SL.done, false);
   if (best == null || t < best) { store.set(SL.best, t); postSecretBest(level, t); }
+  if (best != null && t < best && raceRecovers > 0) unlock('foung');
   store.set(SL.done, true); if (level === 'doge') fillPresetSelect();
   if (first) { awardCoins(100, 'secret level cleared'); confetti(); }
   const burgers = T.burgers ? T.burgers.filter(b => b.got).length : 0;
-  if (T.burgers && burgers === T.burgers.length) unlock('allburgir');
+  if (T.burgers && burgers === T.burgers.length) {
+    unlock('allburgir');
+    if (!store.get('ds:allBurgir', false)) { store.set('ds:allBurgir', true); setTimeout(() => { toast('🍙 BIG SKINNY unlocked in the shop (Customize → Shop → Rear)'); confetti(); }, 1600); }
+  }
   secret.result = { t, best: best == null ? t : Math.min(best, t), first, level, burgers, total: T.burgers ? T.burgers.length : 0 };
   setTimeout(() => { if (secret.active) openModal('secretdone'); }, 1100);
 }
@@ -4679,7 +4816,8 @@ const ACHS = [
   ['moonwalk', '🕺', 'Moonwalker', '???', 75, null, true],
   ['flasher', '🔦', 'Flasher', '???', 75, null, true],
   ['burgir', '🍔', 'Hemlo', '???', 100, null, true],
-  ['allburgir', '🍟', 'Much burgir', '???', 100, null, true]
+  ['allburgir', '🍟', 'Much burgir', '???', 100, null, true],
+  ['foung', '🧠', 'Foung Strat', '???', 120, null, true]
 ];
 let achDirty = false;
 function saveStats() { store.set('ds:stats', stats); store.set('ds:ach', [...achGot]); achDirty = true; }
@@ -4735,6 +4873,8 @@ function statsFinish(entry, prevBest) {
   stats.finishes++;
   const d = dateKey(new Date()); if (!stats.days.includes(d)) stats.days.push(d);
   if (entry && prevBest != null && entry.t < prevBest) stats.pbs++;
+  // Foung Strat: pressed R to reset and realign, and still set a personal best
+  if (entry && prevBest != null && entry.t < prevBest && raceRecovers > 0) unlock('foung');
   const m = entry && medalFor(entry.t);
   if (m && (m.cls === 'gold' || m.cls === 'ultra')) stats.golds++;
   if (m && m.cls === 'ultra') stats.ultras++;
@@ -4855,6 +4995,7 @@ function moeTick(dt) {
     if (moe.el.paused) moe.el.play().catch(() => {});
   } else if (moe.el && !moe.el.paused) moe.el.pause();
   moe.t += dt;
+  animCosmetics(carMesh); ghostObjs.forEach(g => { if (g.mesh && g.mesh.visible) animCosmetics(g.mesh); });
   // other players' Moes: each has its own player, loudest right next to them and silent past ~60 m
   const live = (mp.active || mp.spec) && settings.sound && !paused && !document.hidden;
   for (const [uid, a] of moe.remote) {
@@ -4874,6 +5015,23 @@ function moeTick(dt) {
   }
   if (!on) return;
   const box = carMesh.getObjectByName('moe'); if (box) moeAnim(box, play);
+}
+// moving cosmetics: disco ball and UFO rim spin, UFO hovers, rocket flames flicker, the throne lid flaps,
+// the brain bobs and BIG SKINNY stomps
+function animCosmetics(root) {
+  const L = root && root.userData.anim; if (!L || !L.length) return;
+  const t = moe.t;
+  for (const o of L) {
+    const b = o.userData.base, r = o.userData.rot;
+    switch (o.userData.anim) {
+      case 'spin': o.rotation.y = t * 1.6; if (o.userData.glint) o.userData.glint.color.setHSL((t * 0.5) % 1, 1, 0.6); break;
+      case 'hover': o.position.y = b.y + Math.sin(t * 2.2) * 0.08; o.rotation.z = Math.sin(t * 1.3) * 0.08; break;
+      case 'flame': { const f = 0.75 + Math.random() * 0.5; o.scale.set(1, f, 1); o.position.z = b.z - (f - 1) * 0.3; break; }
+      case 'flap': o.rotation.x = r.x + Math.max(0, Math.sin(t * 1.7)) * 0.25; break;
+      case 'bob': o.position.y = b.y + Math.sin(t * 2) * 0.03; o.rotation.y = Math.sin(t * 0.7) * 0.4; break;
+      case 'stomp': { const k = Math.max(0, Math.sin(t * 2.4)); o.position.y = b.y + k * k * 0.06; o.rotation.z = Math.sin(t * 1.2) * 0.1; break; }
+    }
+  }
 }
 function moeAnim(box, play) {
   const beat = play ? Math.pow(Math.max(0, Math.sin(moe.t * Math.PI * 1.9)), 6) : 0;   // ~114 bpm thump
@@ -5487,7 +5645,6 @@ function openMenu() {
 function closeMenu() { $('#menu').hidden = true; paused = false; last = performance.now(); }
 function showTitle() {
   if (mp.active || mp.spec) return;
-  if (secret.active) { secretExit(); return; }
   state = 'title'; paused = false; closeMenu(); closeModal();
   $('#hud').hidden = true; $('#touch').hidden = true; $('#finish').hidden = true;
   car = spawnCar(); orbitA = car.h + Math.PI * 0.75;
@@ -5497,13 +5654,13 @@ function showTitle() {
 
 function renderTitle() {
   renderCoins();
-  const isToday = raceKey === todayKey;
-  $('#t-eyebrow').textContent = (isToday ? "Today's race" : 'Past race') + ' · #' + raceNo(raceKey);
+  const isToday = raceKey === todayKey, sec = secret.active && SECRETS[secret.level];
+  $('#t-eyebrow').textContent = sec ? 'Secret level · ' + sec.icon : (isToday ? "Today's race" : 'Past race') + ' · #' + raceNo(raceKey);
   $('#t-name').textContent = T.name;
-  $('#t-date').textContent = prettyDate(raceKey);
+  $('#t-date').textContent = sec ? 'Secret' : prettyDate(raceKey);
   $('#t-len').textContent = (T.length / 1000).toFixed(2) + ' km';
-  const runs = getRuns(raceKey);
-  $('#t-best').textContent = runs.length ? fmt(runs[0].t) : '—';
+  const runs = sec ? [] : getRuns(raceKey), secBest = sec ? store.get(sec.best, null) : null;
+  $('#t-best').textContent = sec ? (secBest != null ? fmt(secBest) : '—') : runs.length ? fmt(runs[0].t) : '—';
   const bar = $('#t-strip'); bar.innerHTML = '';
   for (const r of T.runs) { const i = document.createElement('i'); i.className = 's-' + SURF_NAMES[r.s]; i.style.flexGrow = r.to - r.from + 1; bar.append(i); }
   const marks = $('#t-marks'); marks.innerHTML = '';
@@ -5518,7 +5675,7 @@ function renderTitle() {
   $('#t-medals').innerHTML = (T.ultra ? `<span title="Ultra pace"><i class="medal ultra"></i>${fmt(T.ultra.t)}</span>` : '') + (T.rival
     ? `<span><i class="medal gold"></i>${fmt(T.rival.t)}</span><span><i class="medal silver"></i>${fmt(T.rival.t * 1.1)}</span><span><i class="medal bronze"></i>${fmt(T.rival.t * 1.25)}</span>`
     : '');
-  const b = $('#b-race'); b.disabled = false; b.textContent = runs.length ? 'Race again' : 'Race now';
+  const b = $('#b-race'); b.disabled = false; b.textContent = runs.length || secBest != null ? 'Race again' : 'Race now';
   updateNextLine();
   if (net.auth && !net.uid) {
     $('#t-driver-name').textContent = 'Sign in to save your car and times';
@@ -5527,11 +5684,12 @@ function renderTitle() {
   }
   const nm = myName();
   $('#t-driver-name').textContent = nm ? 'Driving as ' + nm : 'Pick a driver name';
-  const racers = net.ready ? onlineRows().length : 0;
+  const racers = !net.ready ? 0 : sec ? [...net.drivers.values()].filter(d => d && d.secret && typeof d.secret[secret.level] === 'number').length : onlineRows().length;
   $('#t-driver-act').textContent = nm ? (net.ready ? racers + ' raced · change' : 'Change') : 'Sign up';
 }
 
 function renderBoard(list, sub) {
+  if (secret.active && SECRETS[secret.level]) { secretTab = secret.level; renderSecretBoard(list, sub || document.createElement('p')); return; }
   const src = boardEntries();
   if (sub) {
     sub.textContent = '';
@@ -5713,6 +5871,10 @@ function unlockIn(k) {
 }
 function updateNextLine() {
   const el = $('#t-next'); if (!el) return;
+  if (secret.active) {   // on a secret level's title card: a way back to the daily race
+    if (!el.querySelector('button')) { el.textContent = ''; const l = document.createElement('button'); l.className = 'inline-link'; l.textContent = "← Back to today's race"; l.onclick = () => secretExit(); el.append(l); }
+    return;
+  }
   const k = dateKey(new Date(Date.now() + 86400000));
   let info = previewCache[k];
   if (!info) { try { info = previewCache[k] = buildTrackData(k, true); } catch (e) { info = null; } }
@@ -5814,7 +5976,7 @@ function openModal(kind) {
     const tick = () => document.querySelectorAll('[data-unlock]').forEach(el => { el.textContent = unlockIn(el.dataset.unlock); });
     clearInterval(modalTimer); modalTimer = setInterval(tick, 1000);
     c.querySelectorAll('.past button[data-k]').forEach(b => b.onclick = () => { closeModal(); loadRace(b.dataset.k); });
-    c.querySelectorAll('[data-secret]').forEach(b => b.onclick = () => loadSecret(b.dataset.secret));
+    c.querySelectorAll('[data-secret]').forEach(b => b.onclick = () => loadSecret(b.dataset.secret, true));
   } else if (kind === 'signin') {
     const racing = pendingRace;
     c.innerHTML = `<h2>Sign in</h2>
