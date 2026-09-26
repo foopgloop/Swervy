@@ -3609,6 +3609,7 @@ async function mpCreateParty(opt) {
   if (!mpReady() || mp.phase !== 'idle') return;
   try {
     await mpSyncClock();
+    mpClearOldParties();
     const ref = net.db.collection('lobbies').doc();
     const locked = !!opt.locked && !!opt.password;
     const hash = locked ? await pwHash(opt.password) : null;
@@ -3709,6 +3710,27 @@ async function mpNextRound() {
     mp.unsub.push(un);
   } catch (e) { mpFail(e); }
 }
+// parties left behind by a reload or a closed tab: delete the ones this player hosts that aren't the current one
+async function mpClearOldParties() {
+  try {
+    const snap = await net.db.collection('lobbies').where('host', '==', net.uid).get();
+    snap.docs.forEach(d => {
+      if (d.id === mp.id) return;
+      const L = d.data() || {}, now = srvNow();
+      const others = Object.entries(L.players || {}).some(([uid, p]) => uid !== net.uid && p && now - (p.seen || 0) < MP_STALE);
+      if (!others) d.ref.delete().catch(() => {});   // someone else is still using it: leave it to them
+    });
+  } catch (e) {}
+}
+// closing or reloading the tab leaves the party straight away (and deletes it if nobody else is in it)
+addEventListener('pagehide', () => {
+  if (!net.db || !mp.id || !net.uid) return;
+  const id = mp.id, L = mp.lobby || {};
+  if (net.rt) net.rt.ref('mp/' + id + '/' + net.uid).remove().catch(() => {});
+  const others = Object.entries(L.players || {}).filter(([uid, p]) => uid !== net.uid && p && srvNow() - (p.seen || 0) < MP_STALE);
+  if (!others.length && L.host === net.uid) net.db.doc('lobbies/' + id).delete().catch(() => {});
+  else mpLeaveLobby(id);
+});
 function mpLeaveLobby(id) {
   if (!id || !net.db) return;
   net.db.doc('lobbies/' + id).update({ ['players.' + net.uid]: firebase.firestore.FieldValue.delete() }).catch(() => {});
@@ -3783,12 +3805,15 @@ async function renderPartyList() {
   try { await mpSyncClock(); docs = (await net.db.collection('lobbies').where('created', '>', srvNow() - 3 * 3600000).orderBy('created', 'desc').limit(40).get()).docs; }
   catch (e) { sub.textContent = 'Could not load parties. Check your connection.'; return; }
   if (!$('#mpj-list')) return;
-  const now = srvNow(), rows = [];
+  const now = srvNow(), rows = [], hosts = new Set();
   for (const d of docs) {
     const L = d.data(); if (!L || L.next) continue;
     const live = Object.entries(L.players || {}).filter(([uid, p]) => p && now - (p.seen || 0) < MP_STALE);
     const racing = L.startAt != null;
-    if (racing ? now - L.startAt > 10 * 60000 : !live.length) continue;
+    if (racing ? now - L.startAt > 10 * 60000 || !Object.keys(L.players || {}).length : !live.length) continue;
+    const who = L.host || (live[0] && live[0][0]);
+    if (who && hosts.has(who)) continue;   // newest first, so older duplicates from the same player are skipped
+    if (who) hosts.add(who);
     rows.push({ id: d.id, L, live, racing });
   }
   sub.textContent = rows.length ? rows.length + (rows.length === 1 ? ' party' : ' parties') + ' right now. Locked parties need a password.' : 'No parties right now. Create one and invite your friends!';
@@ -4031,6 +4056,9 @@ function mpRenderRemote() {
   const now = performance.now();
   for (const [uid, r] of mp.remote) {
     const g = mp.ghosts.get(uid); if (!g || !r.s) continue;
+    // pick up cosmetics they change mid-session (e.g. Moe unlocked after the race was set up)
+    const dd = net.drivers.get(uid), cos = cleanCos(dd && dd.cos), sig = cosSig(cos);
+    if (g.cosSig !== sig) { g.cosSig = sig; applyCosmetics(g.mesh, cos, false); }
     const s = r.s, dt = Math.min(0.5, (now - r.at) / 1000), k = Math.min(1, (now - (r.last || now)) / 1000 * 12 + 0.05);
     r.last = now;
     const tx = s.x + (s.vx || 0) * dt, ty = s.y + (s.vy || 0) * dt * 0.5, tz = s.z + (s.vz || 0) * dt, th = s.h + (s.wy || 0) * dt;
@@ -4485,7 +4513,7 @@ function flashCheck() {
   }
 }
 // Moe plays his song while he's on your car and you're driving; the speakers thump and the lights cycle
-const moe = { el: null, t: 0 };
+const moe = { el: null, t: 0, remote: new Map() };
 function moeTick(dt) {
   const on = !!carMesh && myCos().rear === 'moe';
   const play = on && settings.sound && !paused && !document.hidden && (state === 'countdown' || state === 'racing' || state === 'finished');
@@ -4493,9 +4521,28 @@ function moeTick(dt) {
     if (!moe.el) { moe.el = new Audio(MOE_URL); moe.el.loop = true; moe.el.volume = 0.45; }
     if (moe.el.paused) moe.el.play().catch(() => {});
   } else if (moe.el && !moe.el.paused) moe.el.pause();
-  if (!on) return;
-  const box = carMesh.getObjectByName('moe'); if (!box) return;
   moe.t += dt;
+  // other players' Moes: each has its own player, loudest right next to them and silent past ~60 m
+  const live = (mp.active || mp.spec) && settings.sound && !paused && !document.hidden;
+  for (const [uid, a] of moe.remote) {
+    const g = live && mp.ghosts.get(uid), box = g && g.mesh.visible && g.mesh.getObjectByName('moe');
+    if (!box) { if (!a.paused) a.pause(); continue; }
+  }
+  if (live) for (const [uid, g] of mp.ghosts) {
+    if (uid === net.uid || !g.mesh || !g.mesh.visible) continue;
+    const box = g.mesh.getObjectByName('moe'); if (!box) continue;
+    let a = moe.remote.get(uid);
+    if (!a) { a = new Audio(MOE_URL); a.loop = true; a.volume = 0; moe.remote.set(uid, a); }
+    const d = camera.position.distanceTo(g.mesh.position), vol = 0.5 * Math.pow(clamp(1 - (d - 6) / 54, 0, 1), 2);
+    a.volume = vol;
+    if (vol > 0 && a.paused) { a.play().then(() => { if (a.duration) a.currentTime = (srvNow() / 1000 + uid.length) % a.duration; }).catch(() => {}); }
+    else if (vol === 0 && !a.paused) a.pause();
+    moeAnim(box, vol > 0);
+  }
+  if (!on) return;
+  const box = carMesh.getObjectByName('moe'); if (box) moeAnim(box, play);
+}
+function moeAnim(box, play) {
   const beat = play ? Math.pow(Math.max(0, Math.sin(moe.t * Math.PI * 1.9)), 6) : 0;   // ~114 bpm thump
   box.userData.cones.forEach(c => { c.scale.set(1 + beat * 0.25, 1 + beat * 0.9, 1 + beat * 0.25); });
   box.scale.setScalar(1 + beat * 0.04);
