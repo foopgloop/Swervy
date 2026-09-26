@@ -2686,7 +2686,7 @@ function setGrid(on) {
 }
 
 function openGarage() {
-  if (!T || !carMesh || state === 'loading' || mp.active || mp.spec || secret.active) return;
+  if (!T || !carMesh || state === 'loading' || mp.active || mp.spec) return;
   closeModal(); closeMenu(); hideCards();
   $('#hud').hidden = true; $('#touch').hidden = true;
   car = spawnCar(); state = 'garage';
@@ -3477,9 +3477,10 @@ async function pullAccount() {
       wallet.coins = Math.max(0, Math.floor(d.coins));
       wallet.owned = [...new Set([...(Array.isArray(d.owned) ? d.owned : []), ...wallet.owned])].filter(id => COS[id]);
       wallet.cos = cleanCos(d.cos);
-      mergeStats(d); pullSecrets(d); setTimeout(syncSecretBests, 3000);
+      mergeStats(d);
       saveWallet(false); refreshMyCosmetics();
     } else saveWallet();   // first sign-in on this account: bring this browser's coins along
+    pullSecrets(d); setTimeout(syncSecretBests, 3000);
     if (typeof d.paint === 'string' && decodePaint(d.paint, MY_PAINT)) { store.set('ds:paint', d.paint); refreshMyPaint(); }
     else if (carMesh) carMesh.userData.paint.color.set(settings.color);
     for (const k in (d.best || {})) {
@@ -4370,7 +4371,7 @@ function pullSecrets(d) {
 }
 const secretFor = (key) => Object.keys(SECRETS).find(k => SECRETS[k].key === key) || null;
 function inGap(s) { if (!T.gaps) return false; for (const g of T.gaps) if (s > g.s0 && s < g.s1) return true; return false; }
-function loadSecret(level) {
+function loadSecret(level, toTitle) {
   if (mp.active || mp.spec) return;
   level = SECRETS[level] ? level : 'doge';
   const SL = SECRETS[level];
@@ -4385,6 +4386,7 @@ function loadSecret(level) {
     } catch (e) { showLoadError(e); return; }
     secret.active = true; secret.level = level;
     ghostSel = [];
+    if (toTitle) { showTitle(); return; }   // picked from Races: show its title card, race when ready
     restart();
     toast(level === 'cheems' ? 'Cheems Burgir Bonk · much floaty, eat all burgirs! 🍔 = −0.5s' : 'Doge Sky Run · jump the gaps, don\'t fall!');
   }, 30);
@@ -4516,7 +4518,7 @@ function nomSound() {
 function makeParkour() {
   T.parkour = true; T.secret = true; T.shortcuts = []; T.name = 'Doge Sky Run';
   for (let i = 0; i < T.N; i++) { T.Y[i] += SKY; T.S[i] = 0; }   // all asphalt up in the sky
-  T.runs = [{ s: 0, from: 0, to: T.N - 1 }];
+  T.runs = [{ s: 0, from: 0, to: T.N - 1 }]; T.share = [1, 0, 0];
   // jumps: a ramp, then a gap, spaced along the route away from the start, checkpoints and finish
   const ramps = [], gaps = [], pads = [], rampLen = Math.ceil(10 / T.ds), gapLen = Math.ceil(13 / T.ds);
   const clear = (a, b) => T.cps.every(c => c < a - 14 || c > b + 10);
@@ -5487,7 +5489,6 @@ function openMenu() {
 function closeMenu() { $('#menu').hidden = true; paused = false; last = performance.now(); }
 function showTitle() {
   if (mp.active || mp.spec) return;
-  if (secret.active) { secretExit(); return; }
   state = 'title'; paused = false; closeMenu(); closeModal();
   $('#hud').hidden = true; $('#touch').hidden = true; $('#finish').hidden = true;
   car = spawnCar(); orbitA = car.h + Math.PI * 0.75;
@@ -5497,13 +5498,13 @@ function showTitle() {
 
 function renderTitle() {
   renderCoins();
-  const isToday = raceKey === todayKey;
-  $('#t-eyebrow').textContent = (isToday ? "Today's race" : 'Past race') + ' · #' + raceNo(raceKey);
+  const isToday = raceKey === todayKey, sec = secret.active && SECRETS[secret.level];
+  $('#t-eyebrow').textContent = sec ? 'Secret level · ' + sec.icon : (isToday ? "Today's race" : 'Past race') + ' · #' + raceNo(raceKey);
   $('#t-name').textContent = T.name;
-  $('#t-date').textContent = prettyDate(raceKey);
+  $('#t-date').textContent = sec ? 'Secret' : prettyDate(raceKey);
   $('#t-len').textContent = (T.length / 1000).toFixed(2) + ' km';
-  const runs = getRuns(raceKey);
-  $('#t-best').textContent = runs.length ? fmt(runs[0].t) : '—';
+  const runs = sec ? [] : getRuns(raceKey), secBest = sec ? store.get(sec.best, null) : null;
+  $('#t-best').textContent = sec ? (secBest != null ? fmt(secBest) : '—') : runs.length ? fmt(runs[0].t) : '—';
   const bar = $('#t-strip'); bar.innerHTML = '';
   for (const r of T.runs) { const i = document.createElement('i'); i.className = 's-' + SURF_NAMES[r.s]; i.style.flexGrow = r.to - r.from + 1; bar.append(i); }
   const marks = $('#t-marks'); marks.innerHTML = '';
@@ -5518,7 +5519,7 @@ function renderTitle() {
   $('#t-medals').innerHTML = (T.ultra ? `<span title="Ultra pace"><i class="medal ultra"></i>${fmt(T.ultra.t)}</span>` : '') + (T.rival
     ? `<span><i class="medal gold"></i>${fmt(T.rival.t)}</span><span><i class="medal silver"></i>${fmt(T.rival.t * 1.1)}</span><span><i class="medal bronze"></i>${fmt(T.rival.t * 1.25)}</span>`
     : '');
-  const b = $('#b-race'); b.disabled = false; b.textContent = runs.length ? 'Race again' : 'Race now';
+  const b = $('#b-race'); b.disabled = false; b.textContent = runs.length || secBest != null ? 'Race again' : 'Race now';
   updateNextLine();
   if (net.auth && !net.uid) {
     $('#t-driver-name').textContent = 'Sign in to save your car and times';
@@ -5527,11 +5528,12 @@ function renderTitle() {
   }
   const nm = myName();
   $('#t-driver-name').textContent = nm ? 'Driving as ' + nm : 'Pick a driver name';
-  const racers = net.ready ? onlineRows().length : 0;
+  const racers = !net.ready ? 0 : sec ? [...net.drivers.values()].filter(d => d && d.secret && typeof d.secret[secret.level] === 'number').length : onlineRows().length;
   $('#t-driver-act').textContent = nm ? (net.ready ? racers + ' raced · change' : 'Change') : 'Sign up';
 }
 
 function renderBoard(list, sub) {
+  if (secret.active && SECRETS[secret.level]) { secretTab = secret.level; renderSecretBoard(list, sub || document.createElement('p')); return; }
   const src = boardEntries();
   if (sub) {
     sub.textContent = '';
@@ -5713,6 +5715,10 @@ function unlockIn(k) {
 }
 function updateNextLine() {
   const el = $('#t-next'); if (!el) return;
+  if (secret.active) {   // on a secret level's title card: a way back to the daily race
+    if (!el.querySelector('button')) { el.textContent = ''; const l = document.createElement('button'); l.className = 'inline-link'; l.textContent = "← Back to today's race"; l.onclick = () => secretExit(); el.append(l); }
+    return;
+  }
   const k = dateKey(new Date(Date.now() + 86400000));
   let info = previewCache[k];
   if (!info) { try { info = previewCache[k] = buildTrackData(k, true); } catch (e) { info = null; } }
@@ -5814,7 +5820,7 @@ function openModal(kind) {
     const tick = () => document.querySelectorAll('[data-unlock]').forEach(el => { el.textContent = unlockIn(el.dataset.unlock); });
     clearInterval(modalTimer); modalTimer = setInterval(tick, 1000);
     c.querySelectorAll('.past button[data-k]').forEach(b => b.onclick = () => { closeModal(); loadRace(b.dataset.k); });
-    c.querySelectorAll('[data-secret]').forEach(b => b.onclick = () => loadSecret(b.dataset.secret));
+    c.querySelectorAll('[data-secret]').forEach(b => b.onclick = () => loadSecret(b.dataset.secret, true));
   } else if (kind === 'signin') {
     const racing = pendingRace;
     c.innerHTML = `<h2>Sign in</h2>
