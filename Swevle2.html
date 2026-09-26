@@ -2633,7 +2633,7 @@ function renderShop() {
   none.innerHTML = '<span class="ic">🚫</span><span class="nm">None</span><small>' + (!eq ? 'On' : 'Take off') + '</small>';
   none.onclick = () => { cosPreview = null; delete wallet.cos[shopSlot]; saveWallet(); refreshMyCosmetics(); renderShop(); };
   grid.append(none);
-  COS_ITEMS.filter(it => it.slot === shopSlot).forEach(it => {
+  COS_ITEMS.filter(it => it.slot === shopSlot && (!it.secret || wallet.owned.includes(it.id))).forEach(it => {
     const owned = wallet.owned.includes(it.id), on = eq === it.id, pv = cosPreview && cosPreview.id === it.id;
     const el = document.createElement('div'); el.className = 'gs-item' + (on ? ' eq' : '') + (pv ? ' pv' : '') + (owned ? ' own' : ''); el.tabIndex = 0; el.title = it.name;
     const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = it.icon;
@@ -2957,6 +2957,7 @@ const COS_ITEMS = [
   { id: 'shiba', slot: 'roof', name: 'Shiba Inu', price: 250, icon: '🐕' },
   { id: 'ducktail', slot: 'rear', name: 'Ducktail', price: 90, icon: '🪽' },
   { id: 'wing', slot: 'rear', name: 'GT wing', price: 160, icon: '🏁' },
+  { id: 'moe', slot: 'rear', name: 'Moe', price: 0, icon: '📻', secret: true },   // only from the Flasher easter egg
   { id: 'num7', slot: 'sticker', name: 'Racing 7', price: 30, icon: '7️⃣' },
   { id: 'bolt', slot: 'sticker', name: 'Lightning', price: 40, icon: '⚡' },
   { id: 'check', slot: 'sticker', name: 'Checker', price: 45, icon: '🏁' },
@@ -3157,6 +3158,24 @@ function buildCosmetics(cos, ghost) {
       put(B(2.0, 0.06, 0.4), bl, 0, HY + 0.42, -2.0, -0.12); for (const x of [-1.0, 1.0]) put(B(0.04, 0.24, 0.46), bl, x, HY + 0.42, -2.0); break;
     }
     case 'ducktail': put(B(2.0, 0.08, 0.34), L(0x1c2026), 0, HY + 0.08, -2.02, 0.35); break;
+    case 'moe': {
+      // Moe: a chunky boombox on the boot with speakers that thump to the beat
+      const box = new THREE.Group(); box.name = 'moe'; box.position.set(0, HY + 0.3, -1.75); grp.add(box);
+      const add = (geo, mat, x, y, z, rx) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.x = rx || 0; m.castShadow = !ghost; box.add(m); return m; };
+      add(B(1.3, 0.55, 0.36), L(0x2a2f38), 0, 0, 0);
+      add(B(1.34, 0.08, 0.4), chrome, 0, 0.3, 0);
+      for (const x of [-0.5, 0.5]) add(C(0.03, 0.03, 0.4, 6), chrome, x, 0.44, 0);
+      add(C(0.03, 0.03, 1.0, 6), chrome, 0, 0.62, 0, 0).rotation.z = Math.PI / 2;
+      const glow = cosMat('moeglow', () => new THREE.MeshLambertMaterial({ color: 0xff3fa4, emissive: 0xff3fa4 }));
+      box.userData.glow = glow; box.userData.cones = [];
+      for (const x of [-0.38, 0.38]) {
+        add(C(0.2, 0.2, 0.04, 20), L(0x9aa3ad), x, -0.02, -0.19, Math.PI / 2);
+        const cone = add(K(0.17, 0.1, 20), L(0x13161b), x, -0.02, -0.23, -Math.PI / 2); box.userData.cones.push(cone);
+        add(S(0.05), glow, x, -0.02, -0.28);
+      }
+      add(B(0.3, 0.1, 0.02), glow, 0, 0.15, -0.19);
+      break;
+    }
   }
   if (cos.sticker) {
     const mat = cosMat('stk' + cos.sticker, () => new THREE.MeshLambertMaterial({ map: stickerTex(cos.sticker), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
@@ -3179,7 +3198,7 @@ function applyCosmetics(root, cos, ghost) {
 }
 function refreshMyCosmetics() { if (carMesh) applyCosmetics(carMesh, myCos(), false); }
 function botCos(rng) {
-  const pick = (slot) => { const l = COS_ITEMS.filter(it => it.slot === slot); return rng.f() < 0.6 ? l[Math.floor(rng.f() * l.length)].id : undefined; };
+  const pick = (slot) => { const l = COS_ITEMS.filter(it => it.slot === slot && !it.secret); return rng.f() < 0.6 ? l[Math.floor(rng.f() * l.length)].id : undefined; };
   return cleanCos({ hood: pick('hood'), roof: pick('roof'), sticker: pick('sticker'), rear: pick('rear') });
 }
 
@@ -3231,7 +3250,7 @@ function simStep() {
   const inp = state === 'racing' ? inputNow() : state === 'finished' ? COAST : NO_INPUT;
   stepCar(car, inp, DT, true);
   if (mp.active && (state === 'racing' || state === 'finished')) mpCollide(car);
-  if (secret.active) secretStep();
+  if (T.parkour) secretStep();
   if (state === 'racing' || state === 'finished') clock += DT;
   if (state !== 'racing') return;
   raceTime += DT;
@@ -3564,6 +3583,7 @@ function courseInfo(key) {
 function courseLabel(L) {
   if (!L) return '';
   const info = courseInfo(L.key);
+  if (L.key === DOGE_KEY) return '🐕 Doge Sky Run · secret parkour';
   if (L.course === 'random' || !L.course) return 'Random route' + (info ? ' · ' + info.name : '');
   return (L.course === todayKey ? "Today's route" : prettyDate(L.course)) + (info ? ' · ' + info.name + ' · ' + (info.length / 1000).toFixed(2) + ' km' : '');
 }
@@ -3573,6 +3593,8 @@ function courseOptions(sel) {
     const k = dateKey(new Date(Date.now() - d * 86400000)), info = courseInfo(k);
     h += `<option value="${k}"${sel === k ? ' selected' : ''}>${d === 0 ? 'Today · ' : ''}${prettyDate(k)}${info ? ' · ' + info.name : ''}</option>`;
   }
+  // beat the Doge Sky Run once and you can host it (or keep it selected if the party already has it)
+  if (store.get('ds:dogePaint', false) || sel === DOGE_KEY) h += `<option value="${DOGE_KEY}"${sel === DOGE_KEY ? ' selected' : ''}>🐕 Doge Sky Run (secret)</option>`;
   return h;
 }
 function mpMe() { return { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, seen: Math.round(srvNow()), joined: Math.round(srvNow()), ping: mp.ping || null }; }
@@ -3849,8 +3871,8 @@ async function mpTrySpectate(liveId) {
     await new Promise(r => setTimeout(r, 30));
     if (!mp.spec || mp.phase !== 'queue') return;
     raceKey = L.key;
-    buildTrackData(L.key); buildWorld(); clearFx();
-    T.rival = simulateRival(); T.ultra = null;
+    buildCourse(L.key);
+    T.rival = T.parkour ? null : simulateRival(); T.ultra = null;
     mp.players = Object.entries(L.players || {}).filter(([uid, p]) => p && L.startAt - (p.seen || 0) < MP_STALE).map(([uid, p]) => ({ uid, name: cleanName(p.name) || 'Driver', color: cleanColor(p.color) }));
     const keepId = mp.id; mp.id = liveId; mp.bots = mpBots(mp.players.length, L.bots); mp.id = keepId;
     mp.remote = new Map();
@@ -3942,8 +3964,8 @@ async function mpStart() {
   await new Promise(r => setTimeout(r, 30));
   try {
     raceKey = L.key;
-    buildTrackData(L.key); buildWorld(); clearFx();
-    T.rival = simulateRival(); T.ultra = null;
+    buildCourse(L.key);
+    T.rival = T.parkour ? null : simulateRival(); T.ultra = null;
   } catch (e) { console.error(e); mpReset(); toast('Could not build the multiplayer route'); loadRace(todayKey); return; }
   mp.bots = mpBots(mp.players.length, L.bots);
   mp.unsub.push(net.db.collection('lobbies/' + mp.id + '/cars').onSnapshot((snap) => {
@@ -4182,7 +4204,7 @@ addEventListener('focus', dogeCheck);
 
 // The parkour level: a fixed route lifted high above the valley, with gaps cut into the road, launch ramps
 // before them and boost pads leading in. Fall off and you're back at the last checkpoint.
-const SKY = 32;
+const SKY = 32, DOGE_KEY = 'doge-parkour';
 function inGap(s) { if (!T.gaps) return false; for (const g of T.gaps) if (s > g.s0 && s < g.s1) return true; return false; }
 function loadSecret() {
   if (mp.active || mp.spec) return;
@@ -4192,40 +4214,46 @@ function loadSecret() {
   state = 'loading';
   setTimeout(() => {
     try {
-      raceKey = 'doge-parkour';
-      buildTrackData('doge-parkour');
-      T.parkour = true; T.shortcuts = []; T.name = 'Doge Sky Run';
-      for (let i = 0; i < T.N; i++) { T.Y[i] += SKY; T.S[i] = 0; }   // all asphalt up in the sky
-      T.runs = [{ s: 0, from: 0, to: T.N - 1 }];
-      // jumps: a ramp, then a gap, spaced along the route away from the start, checkpoints and finish
-      const ramps = [], gaps = [], pads = [], rampLen = Math.ceil(10 / T.ds), gapLen = Math.ceil(13 / T.ds);
-      const clear = (a, b) => T.cps.every(c => c < a - 14 || c > b + 10);
-      const cands = [];
-      for (let i = 60; i < T.N - 60; i += 2) {
-        const a = i, b = i + rampLen + gapLen + 4;
-        let bend = 0; for (let k = a - 14; k < b + 10; k++) bend += Math.abs(wrapA(T.HEAD[k + 1] - T.HEAD[k]));
-        if (clear(a - 14, b)) cands.push([bend, a]);
-      }
-      cands.sort((p, q) => p[0] - q[0]);
-      const picks = [];
-      for (const [bend, a] of cands) { if (bend > 0.9 || picks.length >= 7) break; if (picks.every(q => Math.abs(q - a) > 45)) picks.push(a); }
-      picks.sort((p, q) => p - q);
-      for (const a of picks) {
-        const b = a + rampLen + gapLen + 4;
-        ramps.push({ i0: a, i1: a + rampLen, s0: a * T.ds, s1: (a + rampLen) * T.ds, h: 2.6 });
-        gaps.push({ i0: a + rampLen + 1, i1: a + rampLen + 1 + gapLen, s0: (a + rampLen + 1) * T.ds, s1: (a + rampLen + 1 + gapLen) * T.ds });
-        pads.push({ i0: a - 12, i1: a - 7 });
-      }
-      T.ramps = ramps; T.gaps = gaps; T.pads = pads;
-      buildWorld(); clearFx();
-      T.rival = null; T.ultra = null;
-      world.add(buildPads());
+      raceKey = DOGE_KEY;
+      buildCourse(DOGE_KEY);
     } catch (e) { showLoadError(e); return; }
     secret.active = true;
     ghostSel = [];
     restart();
     toast('Doge Sky Run · jump the gaps, don\'t fall!');
   }, 30);
+}
+// any course key: the Doge Sky Run is turned into the parkour level after its road is built
+function buildCourse(key) {
+  buildTrackData(key);
+  if (key === DOGE_KEY) makeParkour();
+  buildWorld(); clearFx();
+  if (T.parkour) world.add(buildPads());
+}
+function makeParkour() {
+  T.parkour = true; T.shortcuts = []; T.name = 'Doge Sky Run';
+  for (let i = 0; i < T.N; i++) { T.Y[i] += SKY; T.S[i] = 0; }   // all asphalt up in the sky
+  T.runs = [{ s: 0, from: 0, to: T.N - 1 }];
+  // jumps: a ramp, then a gap, spaced along the route away from the start, checkpoints and finish
+  const ramps = [], gaps = [], pads = [], rampLen = Math.ceil(10 / T.ds), gapLen = Math.ceil(13 / T.ds);
+  const clear = (a, b) => T.cps.every(c => c < a - 14 || c > b + 10);
+  const cands = [];
+  for (let i = 60; i < T.N - 60; i += 2) {
+    const a = i, b = i + rampLen + gapLen + 4;
+    let bend = 0; for (let k = a - 14; k < b + 10; k++) bend += Math.abs(wrapA(T.HEAD[k + 1] - T.HEAD[k]));
+    if (clear(a - 14, b)) cands.push([bend, a]);
+  }
+  cands.sort((p, q) => p[0] - q[0]);
+  const picks = [];
+  for (const [bend, a] of cands) { if (bend > 0.9 || picks.length >= 7) break; if (picks.every(q => Math.abs(q - a) > 45)) picks.push(a); }
+  picks.sort((p, q) => p - q);
+  for (const a of picks) {
+    const b = a + rampLen + gapLen + 4;
+    ramps.push({ i0: a, i1: a + rampLen, s0: a * T.ds, s1: (a + rampLen) * T.ds, h: 2.6 });
+    gaps.push({ i0: a + rampLen + 1, i1: a + rampLen + 1 + gapLen, s0: (a + rampLen + 1) * T.ds, s1: (a + rampLen + 1 + gapLen) * T.ds });
+    pads.push({ i0: a - 12, i1: a - 7 });
+  }
+  T.ramps = ramps; T.gaps = gaps; T.pads = pads;
 }
 function buildPads() {
   const grp = new THREE.Group(), q = quadBuilder(), a = new THREE.Color('#35e0ff'), b = new THREE.Color('#1fb5a9');
@@ -4289,7 +4317,8 @@ const ACHS = [
   ['konami', '🕹️', 'Up up down down', '???', 50, null, true],
   ['goose', '🪿', 'Untitled Goose', '???', 30, null, true],
   ['wow', '✨', 'Wow', '???', 30, null, true],
-  ['moonwalk', '🕺', 'Moonwalker', '???', 75, null, true]
+  ['moonwalk', '🕺', 'Moonwalker', '???', 75, null, true],
+  ['flasher', '🔦', 'Flasher', '???', 75, null, true]
 ];
 let achDirty = false;
 function saveStats() { store.set('ds:stats', stats); store.set('ds:ach', [...achGot]); achDirty = true; }
@@ -4439,6 +4468,39 @@ addEventListener('keydown', (e) => {
     if (eggs.honkT.length >= 10) { eggs.honkT = []; goose(); unlock('goose'); }
   }
 });
+
+// Flasher: flash the headlights 6 times in 3 seconds and Moe the boombox is yours
+const MOE_URL = 'https://cdn.jsdelivr.net/gh/foopgloop/Swervy@main/Moey.mp3';
+let flashTimes = [];
+function flashCheck() {
+  const now = performance.now();
+  flashTimes = flashTimes.filter(t => now - t < 3000); flashTimes.push(now);
+  if (flashTimes.length < 6) return;
+  flashTimes = [];
+  const had = wallet.owned.includes('moe');
+  unlock('flasher');
+  if (!had) {
+    wallet.owned.push('moe'); wallet.cos.rear = 'moe'; saveWallet(); refreshMyCosmetics();
+    setTimeout(() => { toast('📻 Unlocked Moe · secret rear accessory (Customize → Rear)'); confetti(); }, 1200);
+  }
+}
+// Moe plays his song while he's on your car and you're driving; the speakers thump and the lights cycle
+const moe = { el: null, t: 0 };
+function moeTick(dt) {
+  const on = !!carMesh && myCos().rear === 'moe';
+  const play = on && settings.sound && !paused && !document.hidden && (state === 'countdown' || state === 'racing' || state === 'finished');
+  if (play) {
+    if (!moe.el) { moe.el = new Audio(MOE_URL); moe.el.loop = true; moe.el.volume = 0.45; }
+    if (moe.el.paused) moe.el.play().catch(() => {});
+  } else if (moe.el && !moe.el.paused) moe.el.pause();
+  if (!on) return;
+  const box = carMesh.getObjectByName('moe'); if (!box) return;
+  moe.t += dt;
+  const beat = play ? Math.pow(Math.max(0, Math.sin(moe.t * Math.PI * 1.9)), 6) : 0;   // ~114 bpm thump
+  box.userData.cones.forEach(c => { c.scale.set(1 + beat * 0.25, 1 + beat * 0.9, 1 + beat * 0.25); });
+  box.scale.setScalar(1 + beat * 0.04);
+  if (box.userData.glow) box.userData.glow.emissive.setHSL((moe.t * 0.35) % 1, 1, play ? 0.35 + beat * 0.25 : 0.2);
+}
 
 /* ---------------- ghosts ---------------- */
 function boardEntries() {
@@ -4908,6 +4970,7 @@ function frame(now) {
   const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
   tunePerf(raw);
   if (!T || !car) return;
+  moeTick(dt);
   if (!paused && state !== 'replay') {
     if (state === 'countdown') {
       countdownT = mp.active && mp.goAt ? (mp.goAt - srvNow()) / 1000 : countdownT - dt;   // multiplayer: everyone gets GO at the same server time
@@ -5592,7 +5655,7 @@ addEventListener('keydown', (e) => {
   if ((e.code === 'KeyF' || e.code === 'Backspace') && state !== 'loading' && state !== 'title') restart();
   else if (e.code === 'KeyR' && !paused) recover();
   else if (e.code === 'KeyC') { camMode = (camMode + 1) % 3; settings.camera = camMode; saveSettings(); toast(['Chase camera', 'Far camera', 'Hood camera'][camMode]); }
-  else if (e.code === 'KeyL') { setLights(!settings.lights); saveSettings(); toast(settings.lights ? 'Lights on' : 'Lights off'); }
+  else if (e.code === 'KeyL') { setLights(!settings.lights); saveSettings(); toast(settings.lights ? 'Lights on' : 'Lights off'); flashCheck(); }
   else if (e.code === 'KeyG') { ghostsVisible = !ghostsVisible; settings.ghosts = ghostsVisible; saveSettings(); toast(ghostsVisible ? 'Ghosts on' : 'Ghosts off'); }
   else if (e.code === 'Enter' && state === 'title' && document.activeElement === document.body) restart();
 });
