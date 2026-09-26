@@ -3609,6 +3609,7 @@ async function mpCreateParty(opt) {
   if (!mpReady() || mp.phase !== 'idle') return;
   try {
     await mpSyncClock();
+    mpClearOldParties();
     const ref = net.db.collection('lobbies').doc();
     const locked = !!opt.locked && !!opt.password;
     const hash = locked ? await pwHash(opt.password) : null;
@@ -3709,6 +3710,27 @@ async function mpNextRound() {
     mp.unsub.push(un);
   } catch (e) { mpFail(e); }
 }
+// parties left behind by a reload or a closed tab: delete the ones this player hosts that aren't the current one
+async function mpClearOldParties() {
+  try {
+    const snap = await net.db.collection('lobbies').where('host', '==', net.uid).get();
+    snap.docs.forEach(d => {
+      if (d.id === mp.id) return;
+      const L = d.data() || {}, now = srvNow();
+      const others = Object.entries(L.players || {}).some(([uid, p]) => uid !== net.uid && p && now - (p.seen || 0) < MP_STALE);
+      if (!others) d.ref.delete().catch(() => {});   // someone else is still using it: leave it to them
+    });
+  } catch (e) {}
+}
+// closing or reloading the tab leaves the party straight away (and deletes it if nobody else is in it)
+addEventListener('pagehide', () => {
+  if (!net.db || !mp.id || !net.uid) return;
+  const id = mp.id, L = mp.lobby || {};
+  if (net.rt) net.rt.ref('mp/' + id + '/' + net.uid).remove().catch(() => {});
+  const others = Object.entries(L.players || {}).filter(([uid, p]) => uid !== net.uid && p && srvNow() - (p.seen || 0) < MP_STALE);
+  if (!others.length && L.host === net.uid) net.db.doc('lobbies/' + id).delete().catch(() => {});
+  else mpLeaveLobby(id);
+});
 function mpLeaveLobby(id) {
   if (!id || !net.db) return;
   net.db.doc('lobbies/' + id).update({ ['players.' + net.uid]: firebase.firestore.FieldValue.delete() }).catch(() => {});
@@ -3783,12 +3805,15 @@ async function renderPartyList() {
   try { await mpSyncClock(); docs = (await net.db.collection('lobbies').where('created', '>', srvNow() - 3 * 3600000).orderBy('created', 'desc').limit(40).get()).docs; }
   catch (e) { sub.textContent = 'Could not load parties. Check your connection.'; return; }
   if (!$('#mpj-list')) return;
-  const now = srvNow(), rows = [];
+  const now = srvNow(), rows = [], hosts = new Set();
   for (const d of docs) {
     const L = d.data(); if (!L || L.next) continue;
     const live = Object.entries(L.players || {}).filter(([uid, p]) => p && now - (p.seen || 0) < MP_STALE);
     const racing = L.startAt != null;
-    if (racing ? now - L.startAt > 10 * 60000 : !live.length) continue;
+    if (racing ? now - L.startAt > 10 * 60000 || !Object.keys(L.players || {}).length : !live.length) continue;
+    const who = L.host || (live[0] && live[0][0]);
+    if (who && hosts.has(who)) continue;   // newest first, so older duplicates from the same player are skipped
+    if (who) hosts.add(who);
     rows.push({ id: d.id, L, live, racing });
   }
   sub.textContent = rows.length ? rows.length + (rows.length === 1 ? ' party' : ' parties') + ' right now. Locked parties need a password.' : 'No parties right now. Create one and invite your friends!';
