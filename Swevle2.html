@@ -3762,8 +3762,12 @@ function devIcon(dev) {
   const el = document.createElement('i'); el.className = 'dev'; el.title = d[0]; el.setAttribute('aria-label', d[0]); el.innerHTML = d[1];
   return el;
 }
+// daily times from before this date were voided: they don't show on any board and score no ranking points
+const BOARD_EPOCH = '2026-09-25';
+const boardVoid = (key) => /^\d{4}-\d{2}-\d{2}$/.test(key) && key < BOARD_EPOCH;
 function onlineRows() {
   const out = [];
+  if (boardVoid(raceKey)) return out;
   for (const [uid, d] of net.drivers) {
     const b = d && d.best && d.best[raceKey];
     if (!b || typeof b.t !== 'number' || !(b.t > 5)) continue;
@@ -3782,7 +3786,7 @@ function standings() {
     if (!best || typeof best !== 'object') continue;
     for (const k in best) {
       const b = best[k];
-      if (!b || typeof b.t !== 'number' || !(b.t > 5)) continue;
+      if (boardVoid(k) || !b || typeof b.t !== 'number' || !(b.t > 5)) continue;
       (days[k] || (days[k] = [])).push({ uid, t: b.t });
     }
   }
@@ -5840,7 +5844,7 @@ function renderBoard(list, sub) {
   if (sub) {
     sub.textContent = '';
     const head = document.createElement('span');
-    head.textContent = `${T.name} · ${prettyDate(raceKey)}. ` + (boardOpen(raceKey) ? '' : '🔒 Final results: this race is over, so new times no longer count. ');
+    head.textContent = `${T.name} · ${prettyDate(raceKey)}. ` + (boardVoid(raceKey) ? '🚫 This day\'s leaderboard was voided. ' : boardOpen(raceKey) ? '' : '🔒 Final results: this race is over, so new times no longer count. ');
     sub.append(head);
     if (net.ready) {
       const live = document.createElement('span'); live.className = 'live'; live.textContent = 'Live';
