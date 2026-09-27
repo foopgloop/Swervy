@@ -349,6 +349,8 @@ body.touch #flip .k-touch{display:inline}
 .mp-big.go:hover{background:var(--go-dark)}
 .mpc{display:flex;flex-direction:column;gap:8px}
 .mpc-sel{height:44px;font-size:14px;margin-top:0}
+.mpq-kick{border:0;background:none;color:var(--muted);font:800 13px/1 var(--ui);cursor:pointer;padding:4px 6px;border-radius:4px}
+.mpq-kick:hover{background:var(--paper-2);color:#d8281e}
 .mpq-coursebar{margin:-2px 0 4px;font:700 13px/1.3 var(--ui);color:var(--ink)}
 .mpq-full{grid-column:1/-1}
 .mpq-pwrow{display:flex;gap:6px}
@@ -550,6 +552,7 @@ body.touch .key-legend{display:none}
     <h2>Menu</h2>
     <button class="btn go" id="m-retry">Retry <kbd>F</kbd></button>
     <button class="btn" id="m-resume">Resume <kbd>Esc</kbd></button>
+    <button class="btn" id="m-end" hidden>End race for everyone</button>
     <button class="btn" id="m-leave" hidden>Leave party</button>
     <button class="btn" data-open="vehicle">Customize</button>
     <button class="btn" data-open="settings">Settings</button>
@@ -3277,7 +3280,7 @@ function buildCosmetics(cos, ghost) {
       put(S(0.2), o, 0, legY + 0.14, z0, 0, 0, 0, 0.72, 0.68, 1.55);                  // body
       put(S(0.18), cr, 0, legY + 0.08, z0 + 0.02, 0, 0, 0, 0.62, 0.5, 1.3);           // belly
       put(S(0.14), cr, 0, legY + 0.14, z0 + 0.22, 0, 0, 0, 0.85, 1.1, 0.8);           // chest
-      put(S(0.11), o, 0, legY + 0.3, z0 + 0.27, -0.7, 0, 0, 0.85, 1.35, 0.85);           // neck, blending chest into head
+      put(S(0.1), o, 0, legY + 0.3, z0 + 0.3, 0.55, 0, 0, 0.85, 1.25, 0.9);            // neck: leans forward from the chest up into the head
       put(S(0.07), cr, 0, legY + 0.24, z0 + 0.31, 0, 0, 0, 1, 1.3, 0.8);               // throat
       // legs: orange upper, cream lower with paws; a mid-stride pose
       const leg = (x, z, rx, front) => {
@@ -3305,10 +3308,12 @@ function buildCosmetics(cos, ghost) {
         put(K(0.05, 0.12, 3), o, x, hy + 0.13, hz - 0.01, -0.1, Math.PI, x > 0 ? -0.22 : 0.22);          // ears
         put(K(0.03, 0.08, 3), cr, x * 0.97, hy + 0.12, hz + 0.008, -0.1, Math.PI, x > 0 ? -0.22 : 0.22);
       }
-      // curled tail over the back
-      const tail = put(new THREE.TorusGeometry(0.075, 0.042, 10, 18, Math.PI * 1.75), o, 0, legY + 0.36, z0 - 0.2, 0, Math.PI / 2, 0.4);
-      put(new THREE.TorusGeometry(0.075, 0.025, 8, 14, Math.PI * 1.1), cr, 0.012, legY + 0.36, z0 - 0.2, 0, Math.PI / 2, 1.3);
-      tail.castShadow = !ghost;
+      // curled tail: a fluffy chain of balls rising from the rump and rolling forward onto the back
+      for (let k = 0; k <= 12; k++) {
+        const t = k / 12, a = t * Math.PI * 1.55, rad = 0.085 - t * 0.02;
+        const y = legY + 0.26 + Math.sin(a) * rad + t * 0.05, z = z0 - 0.27 + (1 - Math.cos(a)) * rad * 0.9 - t * 0.02;
+        put(S(0.05 - t * 0.012), k > 9 ? cr : o, 0, y, z);
+      }
       break;
     }
   }
@@ -3861,8 +3866,8 @@ async function mpCreateParty(opt) {
   if (!mpReady() || mp.phase !== 'idle') return;
   try {
     await mpSyncClock();
-    mpClearOldParties();
     const ref = net.db.collection('lobbies').doc();
+    await mpClearOldParties(ref.id);   // finish tidying old parties first, and never touch the one we're making
     const locked = !!opt.locked && !!opt.password;
     const hash = locked ? await pwHash(opt.password) : null;
     await ref.set({ name: onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: opt.bots !== false, collide: opt.collide !== false, course: opt.course || 'random',
@@ -3881,6 +3886,8 @@ async function mpJoinParty(id, password, hashIn) {
       const snap = await tx.get(ref), L = snap.exists ? snap.data() : null, now = srvNow();
       if (!L) return 'gone';
       if (L.locked && L.pw && hash !== L.pw && !(L.members || []).includes(net.uid)) return 'password';
+      if ((L.kicked || []).includes(net.uid)) return 'kicked';
+      if (L.disband) return 'gone';
       if (L.startAt != null) return 'racing';
       const live = Object.entries(L.players || {}).filter(([uid, p]) => uid !== net.uid && p && now - (p.seen || 0) < MP_STALE);
       if (live.length >= MP_MAX) return 'full';
@@ -3914,10 +3921,9 @@ function mpSpectateParty(id) {
 async function mpEnterLobby(id) {
   mp.phase = 'queue'; mp.id = id; mp.lobby = null;
   mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => {
-    if (!s.exists) return;
+    if (!s.exists) { if (mp.id === id && (mp.active || mp.phase === 'queue')) mpDisbanded(); return; }
     mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue();
-    const ra = mp.lobby.restartAt;   // the leader restarted the race for everyone
-    if (mp.active && typeof ra === 'number' && ra > (mp.startedAt || 0) && ra !== mp.restartSeen) mpDoRestart(ra);
+    mpLeaderEvents(mp.lobby);
   }));
   openModal('mp');
   clearInterval(mp.timer);
@@ -3968,11 +3974,11 @@ async function mpNextRound() {
   } catch (e) { mpFail(e); }
 }
 // parties left behind by a reload or a closed tab: delete the ones this player hosts that aren't the current one
-async function mpClearOldParties() {
+async function mpClearOldParties(keep) {
   try {
     const snap = await net.db.collection('lobbies').where('host', '==', net.uid).get();
     snap.docs.forEach(d => {
-      if (d.id === mp.id) return;
+      if (d.id === mp.id || d.id === keep) return;
       const L = d.data() || {}, now = srvNow();
       const others = Object.entries(L.players || {}).some(([uid, p]) => uid !== net.uid && p && now - (p.seen || 0) < MP_STALE);
       if (!others) d.ref.delete().catch(() => {});   // someone else is still using it: leave it to them
@@ -4040,7 +4046,12 @@ function renderMpQueue() {
   const cs = c.querySelector('#mpq-cs'); if (cs && L && document.activeElement !== cs && cs.value !== (L.course || 'random')) cs.value = L.course || 'random';
   const st = c.querySelector('#mpq-start');
   if (st) { st.disabled = !botsOn && players.length < 2; st.title = st.disabled ? 'Turn bots on or wait for another player' : ''; }
+  const cancel = c.querySelector('#mpq-cancel'); if (cancel) cancel.textContent = lead && !mp.spec ? 'Disband party' : 'Leave party';
   const list = c.querySelector('#mpq-list');
+  // only rebuild the list when something in it changed, so buttons in it stay clickable
+  const sig = [leader, lead, waiting, ...players.map(([uid, p]) => uid + (p && p.name) + (p && p.color) + (uid === net.uid ? mp.ping : p && p.ping))].join('|');
+  if (list.dataset.sig === sig) return;
+  list.dataset.sig = sig;
   list.textContent = '';
   players.forEach(([uid, p]) => {
     const li = document.createElement('li'); if (uid === net.uid) li.className = 'me';
@@ -4052,7 +4063,12 @@ function renderMpQueue() {
     if (uid === net.uid || uid === leader) { const sm = document.createElement('small'); sm.textContent = [uid === leader ? 'leader' : '', uid === net.uid ? 'you' : ''].filter(Boolean).join(' · '); nm.append(sm); }
     const ms = uid === net.uid ? mp.ping : p && typeof p.ping === 'number' ? p.ping : null;
     const tm = document.createElement('span'); tm.className = 'tm ping ' + pingClass(ms); tm.textContent = ms == null ? '— ms' : Math.round(ms) + ' ms'; tm.title = 'Ping';
-    li.append(rk, nm, tm); list.append(li);
+    li.append(rk, nm, tm);
+    if (lead && uid !== net.uid && waiting) {   // the leader can remove someone from the lobby
+      const k = document.createElement('button'); k.className = 'mpq-kick'; k.type = 'button'; k.textContent = '✕'; k.title = 'Remove from party'; k.setAttribute('aria-label', 'Remove ' + (cleanName(p && p.name) || 'player'));
+      k.onclick = () => mpKick(uid); li.append(k);
+    }
+    list.append(li);
   });
 }
 async function renderPartyList() {
@@ -4104,6 +4120,7 @@ async function renderPartyList() {
       btn.disabled = false;
       if (r === 'password') { pwWrap.hidden = false; pwWrap.querySelector('.err').textContent = pw ? 'Wrong password' : ''; pwWrap.querySelector('input').focus(); }
       else if (r === 'full') toast('That party is full');
+      else if (r === 'kicked') toast('You were removed from that party');
       else if (r === 'gone') { toast('That party has closed'); renderPartyList(); }
     };
     btn.onclick = () => { if (L.locked && !(L.members || []).includes(net.uid)) { pwWrap.hidden = !pwWrap.hidden; if (!pwWrap.hidden) pwWrap.querySelector('input').focus(); } else go(null); };
@@ -4239,7 +4256,7 @@ async function mpStart() {
   mpStopSpectate();
   mp.phase = 'loading'; mp.active = true; mp.watch = false;
   const L = mp.lobby, goAt = mp.goAt = L.startAt + MP_LOAD;
-  mp.startedAt = srvNow(); mp.restartSeen = L.restartAt || null; mp.noCollide = L.collide === false;
+  mp.startedAt = srvNow(); mp.endSeen = L.endAt || null; mp.ended = false; mp.noCollide = L.collide === false;
   mp.players = Object.entries(L.players || {}).filter(([uid, p]) => uid === net.uid || (p && L.startAt - (p.seen || 0) < MP_STALE)).map(([uid, p]) => ({ uid, name: cleanName(p && p.name) || 'Driver', color: cleanColor(p && p.color) }));
   closeModal(); closeMenu(); hideCards();
   $('#title').hidden = false; $('#t-eyebrow').textContent = 'Multiplayer · ' + mp.players.length + (mp.players.length === 1 ? ' racer' : ' racers');
@@ -4281,7 +4298,7 @@ async function mpStart() {
 function mpPose() {
   const o = carOrigin(car, { x: 0, y: 0, z: 0 });
   return { x: +o.x.toFixed(2), y: +o.y.toFixed(2), z: +o.z.toFixed(2), h: +car.h.toFixed(3), p: +car.pitch.toFixed(3), r: +car.roll.toFixed(3),
-    vx: +car.vx.toFixed(2), vy: +car.vy.toFixed(2), vz: +car.vz.toFixed(2), wy: +car.wy.toFixed(3), t: +raceTime.toFixed(2) };
+    vx: +car.vx.toFixed(2), vy: +car.vy.toFixed(2), vz: +car.vz.toFixed(2), wy: +car.wy.toFixed(3), t: +raceTime.toFixed(2), w: Math.round(srvNow()) };
 }
 function mpPublishLoop() {
   clearInterval(mp.pubT);
@@ -4307,7 +4324,31 @@ function mpRemotePose(uid, v) {
   const r = mp.remote.get(uid) || {};
   r.s = v; r.at = performance.now();
   if (!r.d) r.d = { x: v.x, y: v.y, z: v.z, h: v.h, p: v.p, r: v.r };
+  // keep a short, time-ordered buffer of samples stamped with the sender's server-synced clock
+  if (typeof v.w === 'number') {
+    r.buf = r.buf || [];
+    const last = r.buf[r.buf.length - 1];
+    if (!last || v.w > last.w) { r.buf.push(v); if (r.buf.length > 30) r.buf.shift(); }
+  }
   mp.remote.set(uid, r);
+}
+// where a remote car was at server time tw: interpolate between the two buffered samples around it;
+// past the newest sample, coast on its velocity for a moment (never more than 0.35 s, so no overshoot-and-snap)
+function mpSampleAt(buf, tw, out) {
+  let i = buf.length - 1;
+  while (i > 0 && buf[i - 1].w > tw) i--;
+  const b = buf[i], a = i > 0 ? buf[i - 1] : null;
+  if (a && tw >= a.w && tw <= b.w) {
+    const k = (tw - a.w) / Math.max(1, b.w - a.w);
+    out.x = lerp(a.x, b.x, k); out.y = lerp(a.y, b.y, k); out.z = lerp(a.z, b.z, k);
+    out.h = lerpAngle(a.h, b.h, k); out.p = lerp(a.p, b.p, k); out.r = lerp(a.r, b.r, k);
+    out.vx = lerp(a.vx || 0, b.vx || 0, k); out.vz = lerp(a.vz || 0, b.vz || 0, k);
+    return;
+  }
+  const n = buf[buf.length - 1], e = clamp((tw - n.w) / 1000, 0, 0.35);
+  if (tw < buf[0].w) { const o = buf[0]; Object.assign(out, { x: o.x, y: o.y, z: o.z, h: o.h, p: o.p, r: o.r, vx: o.vx || 0, vz: o.vz || 0 }); return; }
+  out.x = n.x + (n.vx || 0) * e; out.y = n.y + (n.vy || 0) * e * 0.5; out.z = n.z + (n.vz || 0) * e;
+  out.h = n.h + (n.wy || 0) * e; out.p = n.p; out.r = n.r; out.vx = n.vx || 0; out.vz = n.vz || 0;
 }
 // where each remote car is now: last sample moved on by its velocity (capped), eased so corrections don't snap
 function mpRenderRemote() {
@@ -4319,6 +4360,19 @@ function mpRenderRemote() {
     if (g.cosSig !== sig) { g.cosSig = sig; applyCosmetics(g.mesh, cos, !!g.see); }
     const s = r.s, dt = Math.min(0.5, (now - r.at) / 1000), k = Math.min(1, (now - (r.last || now)) / 1000 * 12 + 0.05);
     r.last = now;
+    if (r.buf && r.buf.length) {   // smooth path: draw them a little in the past, between real samples
+      const d = r.d, delay = net.rt ? 160 : 650;
+      mpSampleAt(r.buf, srvNow() - delay, r.tgt || (r.tgt = {}));
+      const t = r.tgt, jump = Math.hypot(t.x - d.x, t.z - d.z) > 8;   // respawns and resets teleport instead of sliding
+      const kk = jump ? 1 : Math.min(1, (performance.now() - (r.lastS || now)) / 1000 * 25 + 0.35);
+      r.lastS = performance.now();
+      d.x += (t.x - d.x) * kk; d.y += (t.y - d.y) * kk; d.z += (t.z - d.z) * kk;
+      d.h = lerpAngle(d.h, t.h, kk); d.p += (t.p - d.p) * kk; d.r += (t.r - d.r) * kk; d.vx = t.vx; d.vz = t.vz;
+      poseMesh(g.mesh, d.x, d.y, d.z, d.h, d.p, d.r);
+      g.mesh.visible = state === 'countdown' || state === 'racing' || state === 'finished' || state === 'spectate';
+      g.label.material.opacity = clamp((camera.position.distanceTo(g.mesh.position) - 7) / 6, 0, 1);
+      continue;
+    }
     const tx = s.x + (s.vx || 0) * dt, ty = s.y + (s.vy || 0) * dt * 0.5, tz = s.z + (s.vz || 0) * dt, th = s.h + (s.wy || 0) * dt;
     const d = r.d;
     d.x += (tx - d.x) * k; d.y += (ty - d.y) * k; d.z += (tz - d.z) * k;
@@ -4335,7 +4389,9 @@ function mpCollide(c) {
   if (!mp.remote.size || c.flipped) return;
   const R = 1.05, fx = Math.sin(c.h), fz = Math.cos(c.h), o = carOrigin(c, { x: 0, y: 0, z: 0 });
   for (const [, r] of mp.remote) {
-    const d = r.d; if (!d || Math.abs(o.y - d.y) > 2.2) continue;
+    let d = r.d;
+    if (r.buf && r.buf.length) { mpSampleAt(r.buf, srvNow(), r.cur || (r.cur = {})); d = r.cur; }   // bump against where they are now
+    if (!d || Math.abs(o.y - d.y) > 2.2) continue;
     if ((o.x - d.x) * (o.x - d.x) + (o.z - d.z) * (o.z - d.z) > 36) continue;
     const gx = Math.sin(d.h), gz = Math.cos(d.h);
     let best = null;
@@ -4365,44 +4421,65 @@ function mpGhostList() {
   return out;
 }
 function mpStandings() {
-  const rows = mp.bots.map(b => ({ name: b.name, t: b.t, bot: true, icon: { id: b.id, tex: b.tex, cos: b.cos } }));
+  const rows = mp.bots.map(b => ({ name: b.name, t: mp.ended && b.t > mp.endT ? null : b.t, bot: true, icon: { id: b.id, tex: b.tex, cos: b.cos } }));
   mp.players.forEach(p => {
     const me = p.uid === net.uid, c = mp.cars.get(p.uid);
-    rows.push({ name: p.name, uid: p.uid, me, t: me ? finishTime : c ? c.done : null, icon: { id: 'drv:' + p.uid, uid: p.uid, me, color: p.color } });
+    rows.push({ name: p.name, uid: p.uid, me, t: me ? (mp.result && mp.result.dnf ? null : finishTime) : c ? c.done : null, icon: { id: 'drv:' + p.uid, uid: p.uid, me, color: p.color } });
   });
   return rows.sort((a, b) => (a.t == null) - (b.t == null) || a.t - b.t);
 }
-// the party leader can restart the race for everyone: a new start time goes on the lobby and every client restarts to it
 // during a race the lobby's "seen" times go stale, so the leader is the host if they're racing, else the first racer by id
 function mpRaceLeader() {
   const L = mp.lobby || {}, ids = mp.players.map(p => p.uid);
   return ids.includes(L.host) ? L.host : ids.slice().sort()[0] || null;
 }
-const mpIsLeader = () => !!(mp.active && mp.lobby && mpRaceLeader() === net.uid);
-function mpAskRestart() {
-  if (!mp.active) return;
-  if (!mpIsLeader()) { toast('Only the party leader can restart'); return; }
-  openModal('mprestart');
+// ---- party leader controls: end the race for everyone, disband the party, remove a player ----
+// each is a field on the lobby doc that every client in the party reacts to
+const MP_ACTIONS = {
+  end: { title: 'End the race?', text: 'Everyone still driving is stopped and gets a DNF. The results show straight away.', yes: 'End race', run: () => mpEndRace() },
+  disband: { title: 'Disband the party?', text: 'The party closes for everyone and they go back to the title screen.', yes: 'Disband', run: () => mpDisband() }
+};
+let mpConfirmWhat = 'end';
+function mpConfirm(what) { mpConfirmWhat = what; closeMenu(); openModal('mpconfirm'); }
+function mpLeaderNow() { return mp.active ? mpRaceLeader() : mp.lobby ? mpLeader(mp.lobby) : null; }
+const mpIsLeader = () => !!(mp.id && mp.lobby && mpLeaderNow() === net.uid);
+function mpEndRace() {
+  if (!mp.active || !mpIsLeader()) return;
+  const at = Math.round(srvNow());
+  net.db.doc('lobbies/' + mp.id).update({ endAt: at }).catch(() => toast('Could not end the race'));
+  mpRaceEnded(at);
 }
-function mpRestartAll() {
+function mpDisband() {
   if (!mpIsLeader()) return;
-  const at = Math.round(srvNow() + 3500);
-  mp.lobby.restartAt = at;
-  net.db.doc('lobbies/' + mp.id).update({ restartAt: at }).catch(() => toast('Could not restart the party'));
-  mpDoRestart(at);
+  const id = mp.id;
+  net.db.doc('lobbies/' + id).update({ disband: true }).catch(() => {});
+  setTimeout(() => net.db.doc('lobbies/' + id).delete().catch(() => {}), 4000);   // tidy up once everyone has seen it
+  mpExit(); toast('Party disbanded');
 }
-function mpDoRestart(at) {
-  if (!mp.active || mp.restartSeen === at) return;
-  mp.restartSeen = at;
-  closeModal(); closeMenu();
-  mp.watch = false; mp.result = null; mpWatchBar();
-  mp.cars.forEach(c => { c.done = null; });
-  net.db.doc('lobbies/' + mp.id + '/cars/' + net.uid).set({ done: null }, { merge: true }).catch(() => {});
-  mp.goAt = at; mp.phase = 'race';
-  mp.starting = true; restart(); mp.starting = false;
-  if (!mp.noCollide) mpGrid(car);
-  mpPublishLoop();
-  toast('🔄 The party leader restarted the race');
+function mpKick(uid) {
+  if (!mpIsLeader() || uid === net.uid || mp.active) return;
+  net.db.doc('lobbies/' + mp.id).update({ ['players.' + uid]: firebase.firestore.FieldValue.delete(), kicked: firebase.firestore.FieldValue.arrayUnion(uid) })
+    .then(() => toast('Removed from the party')).catch(() => toast('Could not remove that player'));
+}
+function mpDisbanded() { if (!mp.id) return; mpExit(); toast('The party leader disbanded the party'); }
+function mpLeaderEvents(L) {
+  if (!L) return;
+  if (L.disband && L.host !== net.uid) { mpDisbanded(); return; }
+  if ((L.kicked || []).includes(net.uid)) { mpExit(); toast('You were removed from the party'); return; }
+  if (mp.active && typeof L.endAt === 'number' && L.endAt > (mp.startedAt || 0) && L.endAt !== mp.endSeen) mpRaceEnded(L.endAt);
+}
+// the leader ended the race: whoever is still driving stops with a DNF and everyone sees the results
+function mpRaceEnded(at) {
+  if (!mp.active || mp.endSeen === at) return;
+  mp.endSeen = at; mp.ended = true; mp.endT = Math.max(0, (at - mp.goAt) / 1000);
+  if (mp.phase === 'done') { if (modalKind === 'mpres') renderMpResults(); return; }
+  clearInterval(mp.pubT);
+  mp.phase = 'done'; state = 'finished'; closeMenu();
+  const ahead = mp.bots.filter(b => b.t <= mp.endT).length + [...mp.cars.values()].filter(c => c.done != null).length;
+  mp.result = { place: ahead + 1, win: false, t: null, dnf: true };
+  stats.mpRaces++; saveStats();
+  toast('🏁 The party leader ended the race');
+  setTimeout(() => { if (mp.active) openModal('mpres'); }, 700);
 }
 function mpFinish() {
   clearInterval(mp.pubT);
@@ -4423,7 +4500,7 @@ function mpFinish() {
 function renderMpResults() {
   const c = $('#modal-content'), r = mp.result;
   if (!r) return;
-  c.querySelector('#mpr-place').textContent = r.win ? 'You won! +1 point' : `You finished ${ordinal(r.place)}`;
+  c.querySelector('#mpr-place').textContent = r.dnf ? 'Race ended by the party leader · DNF' : r.win ? 'You won! +1 point' : `You finished ${ordinal(r.place)}`;
   const list = c.querySelector('#mpr-list');
   list.textContent = '';
   mpStandings().forEach((s, i) => {
@@ -4435,7 +4512,7 @@ function renderMpResults() {
     if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
     nm.append(document.createTextNode(s.name));
     if (s.bot || s.me) { const sm = document.createElement('small'); sm.textContent = s.bot ? 'bot' : 'you'; nm.append(sm); }
-    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = s.t != null ? fmt(s.t) : 'racing…';
+    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = s.t != null ? fmt(s.t) : mp.ended ? 'DNF' : 'racing…';
     li.append(rk, nm, tm); list.append(li);
   });
 }
@@ -5702,9 +5779,11 @@ function openMenu() {
   if (!(state === 'racing' || state === 'countdown' || state === 'finished')) return;
   paused = true; renderBoard($('#m-board'), $('#m-board-sub')); $('#menu').hidden = false;
   // in a party: a way out, and only the leader can restart (for everyone)
+  const lead = mp.active && mpIsLeader();
+  $('#m-retry').hidden = mp.active;
+  $('#m-end').hidden = !lead || mp.phase === 'done';
   $('#m-leave').hidden = !mp.active;
-  $('#m-retry').hidden = mp.active && !mpIsLeader();
-  $('#m-retry').innerHTML = mp.active ? 'Restart everyone <kbd>F</kbd>' : 'Retry <kbd>F</kbd>';
+  $('#m-leave').textContent = lead ? 'Disband party' : 'Leave party';
   Object.keys(keys).forEach(k => keys[k] = false);
   setTimeout(() => $('#m-resume').focus(), 0);
 }
@@ -6142,7 +6221,7 @@ function openModal(kind) {
         <button class="btn go mpq-full" type="button" id="mpq-start">Start race</button>
       </div>
       <button class="btn" type="button" id="mpq-cancel" style="margin-top:12px;width:100%">Leave party</button>`;
-    $('#mpq-cancel').onclick = () => { if (mp.spec) mpExit(false); else closeModal(); };
+    $('#mpq-cancel').onclick = () => { if (mpIsLeader() && !mp.spec) mpConfirm('disband'); else if (mp.spec) mpExit(false); else closeModal(); };
     $('#mpq-bots').onchange = (e) => mpSetBots(e.target.checked);
     $('#mpq-cs').onchange = (e) => mpSetCourse(e.target.value);
     $('#mpq-lock').onchange = (e) => { if (e.target.checked) { $('#mpq-pwrow').hidden = false; e.target.checked = false; $('#mpq-pw').focus(); } else mpSetLock(false); };
@@ -6168,12 +6247,14 @@ function openModal(kind) {
     $('#sec-later').onclick = () => closeModal();
     $('#modal').hidden = false;
     return;
-  } else if (kind === 'mprestart') {
-    c.innerHTML = `<h2>Restart?</h2><p class="sub">This restarts the race for everyone in the party, from a fresh countdown.</p>
-      <div class="row2"><button class="btn go" type="button" id="mrs-yes">Yes, restart</button><button class="btn" type="button" id="mrs-no">No</button></div>`;
-    $('#mrs-yes').onclick = () => mpRestartAll();
-    $('#mrs-no').onclick = () => closeModal();
-    $('#modal').hidden = false; setTimeout(() => $('#mrs-no').focus(), 0);
+  } else if (kind === 'mpconfirm') {   // leader actions ask first, so nobody ends a race by accident
+    const a = MP_ACTIONS[mpConfirmWhat] || MP_ACTIONS.end;
+    c.innerHTML = `<h2>${a.title}</h2><p class="sub">${a.text}</p>
+      <div class="row2"><button class="btn go" type="button" id="mcf-yes">${a.yes}</button><button class="btn" type="button" id="mcf-no">Cancel</button></div>`;
+    const back = () => { if (mp.phase === 'queue' && mp.id) openModal('mp'); else if (mp.active && mp.phase === 'done') openModal('mpres'); else closeModal(); };
+    $('#mcf-yes').onclick = () => { closeModal(); a.run(); };
+    $('#mcf-no').onclick = back;
+    $('#modal').hidden = false; setTimeout(() => $('#mcf-no').focus(), 0);
     return;
   } else if (kind === 'cheems') {
     c.innerHTML = `<div class="secret-hero"><img src="${CHEEMS_URL}" alt="" crossorigin="anonymous"></div><h2>Hemlo. U found me.</h2>
@@ -6202,7 +6283,8 @@ function openModal(kind) {
       <div class="row2" style="margin-top:8px"><button class="btn go" type="button" id="mpr-again">Back to party</button><button class="btn" type="button" id="mpr-exit">Leave party</button></div>`;
     $('#mpr-watch').onclick = () => closeModal();
     $('#mpr-again').onclick = () => mpNextRound();
-    $('#mpr-exit').onclick = () => mpExit(false);
+    if (mpIsLeader()) { $('#mpr-exit').textContent = 'Disband party'; $('#mpr-exit').onclick = () => mpConfirm('disband'); }
+    else $('#mpr-exit').onclick = () => mpExit(false);
     renderMpResults();
     $('#modal').hidden = false;
     return;
@@ -6357,7 +6439,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (!$('#modal').hidden) return;
-  if ((e.code === 'KeyF' || e.code === 'Backspace') && state !== 'loading' && state !== 'title') { if (mp.active) mpAskRestart(); else restart(); }
+  if ((e.code === 'KeyF' || e.code === 'Backspace') && state !== 'loading' && state !== 'title' && !mp.active) restart();
   else if (e.code === 'KeyR' && !paused) recover();
   else if (e.code === 'KeyC') { camMode = (camMode + 1) % 3; settings.camera = camMode; saveSettings(); toast(['Chase camera', 'Far camera', 'Hood camera'][camMode]); }
   else if (e.code === 'KeyL') { setLights(!settings.lights); saveSettings(); toast(settings.lights ? 'Lights on' : 'Lights off'); flashCheck(); }
@@ -6388,9 +6470,10 @@ $('#wb-next').onclick = () => mpWatchStep(1);
 $('#wb-res').onclick = () => { mp.watch = false; mpWatchBar(); openModal('mpres'); };
 $('#wb-lobby').onclick = () => { if (mp.id) openModal('mp'); else toast('You join the next round when this race ends'); };
 $('#wb-leave').onclick = () => mpExit(false);
-$('#m-retry').onclick = () => { if (mp.active) { closeMenu(); mpAskRestart(); } else restart(); };
+$('#m-retry').onclick = () => { if (!mp.active) restart(); };
 $('#m-resume').onclick = () => closeMenu();
-$('#m-leave').onclick = () => { closeMenu(); mpExit(); toast('Left the party'); };
+$('#m-leave').onclick = () => { if (mpIsLeader()) { mpConfirm('disband'); return; } closeMenu(); mpExit(); toast('Left the party'); };
+$('#m-end').onclick = () => mpConfirm('end');
 $('#m-info').onclick = () => showTitle();
 $('#f-retry').onclick = () => restart();
 $('#f-info').onclick = () => showTitle();
