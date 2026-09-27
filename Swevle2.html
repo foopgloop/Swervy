@@ -3900,7 +3900,7 @@ function courseOptions(sel) {
   for (const k in SECRETS) { const SL = SECRETS[k]; if (store.get(SL.done, false) || sel === SL.key) h += `<option value="${SL.key}"${sel === SL.key ? ' selected' : ''}>${SL.icon} ${SL.name} (secret)</option>`; }
   return h;
 }
-function mpMe() { return { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, seen: Math.round(srvNow()), joined: Math.round(srvNow()), ping: mp.ping || null }; }
+function mpMe() { return { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, dev: MY_DEVICE, seen: Math.round(srvNow()), joined: Math.round(srvNow()), ping: mp.ping || null }; }
 function mpReady() {
   if (!net.db) { toast('Multiplayer needs the online leaderboard'); return false; }
   if (!net.uid) { openModal('signin'); return false; }
@@ -4058,7 +4058,7 @@ function mpCancel() {
 }
 function mpReset() {
   mp.unsub.forEach(u => { try { u(); } catch (e) {} });
-  mp.unsub = []; clearInterval(mp.timer); clearInterval(mp.pubT);
+  mp.unsub = []; clearInterval(mp.timer); clearInterval(mp.pubT); mp.following = false;
   mpStopSpectate(); mp.watch = false; mp.watchI = 0;
   mp.active = false; mp.goAt = 0; mp.phase = 'idle'; mp.id = null; mp.lobby = null; mp.bots = []; mp.cars = new Map(); mp.ghosts = new Map(); mp.remote = new Map(); mp.result = null;
   mpWatchBar();
@@ -4112,6 +4112,7 @@ function renderMpQueue() {
     const icon = carIcon({ id: 'drv:' + uid, uid, me: uid === net.uid, color: cleanColor(p && p.color) });
     if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
     nm.append(document.createTextNode(cleanName(p && p.name) || 'Driver'));
+    const di = devIcon(uid === net.uid ? MY_DEVICE : p && p.dev); if (di) nm.append(di);
     if (uid === net.uid || uid === leader) { const sm = document.createElement('small'); sm.textContent = [uid === leader ? 'leader' : '', uid === net.uid ? 'you' : ''].filter(Boolean).join(' · '); nm.append(sm); }
     const ms = uid === net.uid ? mp.ping : p && typeof p.ping === 'number' ? p.ping : null;
     const tm = document.createElement('span'); tm.className = 'tm ping ' + pingClass(ms); tm.textContent = ms == null ? '— ms' : Math.round(ms) + ' ms'; tm.title = 'Ping';
@@ -4566,6 +4567,8 @@ function mpLeaderEvents(L) {
   if (!L) return;
   if (L.disband) { if (L.host === net.uid) { mpExit(); toast('Your party closed while you were away'); } else mpDisbanded(); return; }
   if ((L.kicked || []).includes(net.uid)) { mpExit(); toast('You were removed from the party'); return; }
+  // the leader opened the next race: everyone who has finished (or DNF'd) follows automatically
+  if (L.next && mp.active && mp.phase === 'done' && !mpIsLeader() && !mp.following) { mp.following = true; mpNextRound(); return; }
   if (mp.active && typeof L.endAt === 'number' && L.endAt > (mp.startedAt || 0) && L.endAt !== mp.endSeen) mpRaceEnded(L.endAt);
 }
 // the leader ended the race: whoever is still driving stops with a DNF and everyone sees the results
@@ -4596,6 +4599,7 @@ function mpFinish() {
   stats.mpRaces++; if (win) stats.mpWins++; saveStats(); checkAch();
   if (win) confetti();
   setTimeout(() => { if (mp.active) openModal('mpres'); }, 1200);
+  setTimeout(() => { if (mp.active && mp.lobby && mp.lobby.next) mpLeaderEvents(mp.lobby); }, 4500);   // the leader already moved on: follow after a look at the results
 }
 function renderMpResults() {
   const c = $('#modal-content'), r = mp.result;
@@ -4611,6 +4615,7 @@ function renderMpResults() {
     const icon = carIcon(s.icon);
     if (icon) { const im = document.createElement('img'); im.className = 'car-ic'; im.src = icon; im.alt = ''; nm.append(im); }
     nm.append(document.createTextNode(s.name));
+    if (!s.bot) { const pl = mp.lobby && mp.lobby.players && mp.lobby.players[s.uid], di = devIcon(s.me ? MY_DEVICE : pl && pl.dev); if (di) nm.append(di); }
     if (s.bot || s.me) { const sm = document.createElement('small'); sm.textContent = s.bot ? 'bot' : 'you'; nm.append(sm); }
     const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = s.t != null ? fmt(s.t) : mp.ended ? 'DNF' : 'racing…';
     li.append(rk, nm, tm); list.append(li);
@@ -6424,6 +6429,11 @@ function openModal(kind) {
       <div class="row2" style="margin-top:8px"><button class="btn go" type="button" id="mpr-again">Next race ›</button><button class="btn" type="button" id="mpr-exit">Leave party</button></div>`;
     $('#mpr-watch').onclick = () => closeModal();
     $('#mpr-again').onclick = () => mpNextRound();
+    if (!mpIsLeader()) {   // the leader starts the next race for everyone; the rest follow on their own
+      $('#mpr-again').remove();
+      const w = document.createElement('p'); w.className = 'note mpr-wait'; w.textContent = 'Waiting for the party leader to start the next race…';
+      $('#mpr-exit').parentElement.before(w);
+    }
     if (mpIsLeader()) { $('#mpr-exit').textContent = 'Disband party'; $('#mpr-exit').onclick = () => mpConfirm('disband'); }
     else $('#mpr-exit').onclick = () => mpConfirm('leave');
     renderMpResults(); initChat();
