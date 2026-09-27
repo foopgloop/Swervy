@@ -700,11 +700,11 @@ const saveSettings = () => store.set('ds:settings', settings);
 const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const dateKey = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const dateFromKey = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
-// weekly races use keys like "W2026-09-21.3": the Monday the week starts, and which of a few candidate routes won
+// weekly races use keys like "W2026-09-27.3": the Sunday the week starts, and which of a few candidate routes won
 const isWeekly = (k) => typeof k === 'string' && k[0] === 'W';
 const weekStart = (k) => dateFromKey(k.slice(1, 11));
 const prettyDate = (k) => { if (isWeekly(k)) { const d = weekStart(k); return 'Week of ' + MONTHS[d.getMonth()] + ' ' + d.getDate(); } const d = dateFromKey(k); return MONTHS[d.getMonth()] + ' ' + d.getDate(); };
-const raceNo = (k) => isWeekly(k) ? 'W' + (Math.floor((weekStart(k) - new Date(2026, 0, 5)) / 604800000) + 1) : Math.round((dateFromKey(k) - new Date(2026, 0, 1)) / 86400000) + 1;
+const raceNo = (k) => isWeekly(k) ? 'W' + (Math.floor((weekStart(k) - new Date(2026, 0, 4)) / 604800000) + 1) : Math.round((dateFromKey(k) - new Date(2026, 0, 1)) / 86400000) + 1;
 let todayKey = dateKey(new Date());
 
 function fmt(t) {
@@ -6380,7 +6380,7 @@ function openModal(kind) {
 const WEEK_POINTS = 3;
 const weekKeyCache = {};
 function currentWeekKey() {
-  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay());   // weeks run Sunday to Saturday
   const base = dateKey(d);
   if (weekKeyCache[base]) return weekKeyCache[base];
   let best = null;
