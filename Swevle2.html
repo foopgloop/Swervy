@@ -51,6 +51,14 @@ dd{margin:0;font:800 15px/1.1 var(--ui);font-variant-numeric:tabular-nums}
 .tri{width:0;height:0;border:5px solid transparent;border-top-color:var(--go);margin-top:5px}
 .tick{width:2px;height:11px;background:var(--ink);display:inline-block}
 
+.t-goal{margin:0;font:600 13px/1.4 var(--ui);color:var(--ink)}
+.t-goal b{font-family:var(--mono)}
+.t-more{margin-top:-4px}
+.t-more summary{cursor:pointer;font:800 10px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:4px 0;list-style:none}
+.t-more summary::-webkit-details-marker{display:none}
+.t-more summary::before{content:'▸ ';}
+.t-more[open] summary::before{content:'▾ ';}
+.t-more[open]{display:flex;flex-direction:column;gap:8px}
 .medals{display:flex;flex-wrap:wrap;gap:4px 14px;font:700 12px/1 var(--mono);color:var(--ink)}
 .medals span{display:inline-flex;align-items:center;gap:6px}
 .medal{width:12px;height:12px;border-radius:50%;display:inline-block;box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}
@@ -509,14 +517,18 @@ body.touch .key-legend{display:none}
   </dl>
   <div class="strip">
     <div class="strip-wrap"><div class="strip-bar" id="t-strip"></div><div class="strip-marks" id="t-marks"></div></div>
-    <div class="legend-row" id="t-legend"></div>
   </div>
-  <div class="medals" id="t-medals"></div>
+  <p class="t-goal" id="t-goal"></p>
+  <details class="t-more" id="t-more">
+    <summary>Route details &amp; medal times</summary>
+    <div class="legend-row" id="t-legend"></div>
+    <div class="medals" id="t-medals"></div>
+  </details>
   <p class="note" id="t-next"></p>
   <button class="driver" id="t-driver" data-open="account"><b id="t-driver-name">Set a driver name</b><span id="t-driver-act">Sign up</span></button>
   <button id="b-race" class="btn go" disabled>Race now</button>
   <button id="b-weekly" class="btn weekly" type="button">⭐ Weekly race</button>
-  <div class="row2"><button class="btn" data-open="vehicle">Customize <span class="coins" id="t-coins">🪙 0</span></button><button class="btn" data-open="past">Races</button></div>
+  <div class="row2"><button class="btn" data-open="vehicle">Customize <span class="coins" id="t-coins">🪙 0</span></button><button class="btn" data-open="past">More races</button></div>
   <div class="row2"><button class="btn dark" id="b-mp">Multiplayer</button><button class="btn dark" data-open="board">Leaderboard</button></div>
   <a class="btn yt" href="https://youtube.com/@NeoDogez" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#ff0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/><path fill="#fff" d="M9.6 15.6 15.8 12 9.6 8.4z"/></svg>Subscribe to NeoDogez</a>
   <div class="keys key-legend" aria-label="Controls">
@@ -553,15 +565,14 @@ body.touch .key-legend{display:none}
 <div id="menu" class="overlay" hidden>
   <div class="menu-col panel">
     <h2>Menu</h2>
-    <button class="btn go" id="m-retry">Retry <kbd>F</kbd></button>
-    <button class="btn" id="m-resume">Resume <kbd>Esc</kbd></button>
+    <button class="btn go" id="m-resume">Resume <kbd>Esc</kbd></button>
+    <button class="btn" id="m-retry">Restart <kbd>F</kbd></button>
     <button class="btn" id="m-end" hidden>End race for everyone</button>
     <button class="btn" id="m-leave" hidden>Leave party</button>
     <button class="btn" data-open="vehicle">Customize</button>
     <button class="btn" data-open="settings">Settings</button>
-    <button class="btn" id="m-info">Route info</button>
-    <button class="btn" data-open="past">Past races</button>
     <button class="btn" data-open="howto">How to play</button>
+    <button class="btn" id="m-info">Quit to title</button>
   </div>
   <div class="board-panel panel">
     <h2>Leaderboard</h2>
@@ -689,11 +700,11 @@ const saveSettings = () => store.set('ds:settings', settings);
 const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const dateKey = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const dateFromKey = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
-// weekly races use keys like "W2026-09-21.3": the Monday the week starts, and which of a few candidate routes won
+// weekly races use keys like "W2026-09-27.3": the Sunday the week starts, and which of a few candidate routes won
 const isWeekly = (k) => typeof k === 'string' && k[0] === 'W';
 const weekStart = (k) => dateFromKey(k.slice(1, 11));
 const prettyDate = (k) => { if (isWeekly(k)) { const d = weekStart(k); return 'Week of ' + MONTHS[d.getMonth()] + ' ' + d.getDate(); } const d = dateFromKey(k); return MONTHS[d.getMonth()] + ' ' + d.getDate(); };
-const raceNo = (k) => isWeekly(k) ? 'W' + (Math.floor((weekStart(k) - new Date(2026, 0, 5)) / 604800000) + 1) : Math.round((dateFromKey(k) - new Date(2026, 0, 1)) / 86400000) + 1;
+const raceNo = (k) => isWeekly(k) ? 'W' + (Math.floor((weekStart(k) - new Date(2026, 0, 4)) / 604800000) + 1) : Math.round((dateFromKey(k) - new Date(2026, 0, 1)) / 86400000) + 1;
 let todayKey = dateKey(new Date());
 
 function fmt(t) {
@@ -5802,6 +5813,7 @@ function openMenu() {
   $('#m-retry').hidden = mp.active;
   $('#m-end').hidden = !lead || mp.phase === 'done';
   $('#m-leave').hidden = !mp.active;
+  $('#m-info').hidden = mp.active;
   $('#m-leave').textContent = lead ? 'Disband party' : 'Leave party';
   Object.keys(keys).forEach(k => keys[k] = false);
   setTimeout(() => $('#m-resume').focus(), 0);
@@ -5841,6 +5853,10 @@ function renderTitle() {
     `<span><i class="sw s-asphalt"></i>Asphalt ${pct(0)}</span><span><i class="sw s-dirt"></i>Dirt ${pct(1)}</span><span><i class="sw s-ice"></i>Ice ${pct(2)}</span>` +
     `<span><i class="tri"></i>${T.ramps.length} ramp${T.ramps.length === 1 ? '' : 's'}</span><span><i class="tick"></i>${T.cps.length - 1} checkpoints</span>` +
     `<span><i class="sw sc-sw"></i>${T.shortcuts.length} shortcut${T.shortcuts.length === 1 ? '' : 's'}</span>`;
+  // one plain goal up front; the full breakdown lives under "Route details"
+  const goal = $('#t-goal');
+  if (goal) goal.innerHTML = T.rival ? (runs.length || secBest != null ? '' : 'Drive through every checkpoint to the finish. ') + `🥇 Beat <b>${fmt(T.rival.t)}</b> for gold.`
+    : sec ? 'Drive through every checkpoint to the finish, as fast as you can.' : '';
   $('#t-medals').innerHTML = (T.ultra ? `<span title="Ultra pace"><i class="medal ultra"></i>${fmt(T.ultra.t)}</span>` : '') + (T.rival
     ? `<span><i class="medal gold"></i>${fmt(T.rival.t)}</span><span><i class="medal silver"></i>${fmt(T.rival.t * 1.1)}</span><span><i class="medal bronze"></i>${fmt(T.rival.t * 1.25)}</span>`
     : '');
@@ -6364,7 +6380,7 @@ function openModal(kind) {
 const WEEK_POINTS = 3;
 const weekKeyCache = {};
 function currentWeekKey() {
-  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay());   // weeks run Sunday to Saturday
   const base = dateKey(d);
   if (weekKeyCache[base]) return weekKeyCache[base];
   let best = null;
