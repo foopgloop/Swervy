@@ -312,6 +312,18 @@ body.touch #flip .k-touch{display:inline}
 .board .acts{display:flex;gap:6px;align-items:center;justify-content:flex-end}
 .gbtn.rpbtn{min-width:34px;padding:0 8px;font-size:12px}
 .rp-top .who{font:800 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;opacity:.9}
+.chat{margin-top:12px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);overflow:hidden}
+.chat-log{max-height:130px;min-height:54px;overflow:auto;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
+.chat-log p{margin:0;font:500 13px/1.35 var(--ui);word-break:break-word}
+.chat-log p b{font-weight:800}
+.chat-log p.me b{color:var(--teal)}
+.chat-empty{color:var(--muted)}
+.chat-bar{display:flex;border-top:1px solid var(--line)}
+.chat-bar input{flex:1;min-width:0;border:0;background:#fff;padding:9px 10px;font:600 13px var(--ui);color:var(--ink);user-select:text;-webkit-user-select:text}
+.chat-bar input:focus{outline:2px solid var(--teal);outline-offset:-2px}
+.chat-bar .btn{min-height:0;border:0;border-radius:0;padding:0 14px;font-size:11px}
+.mp-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:8px;border-radius:9px;background:#ffc93c;color:#3a2a00;font:800 10px/1 var(--ui)}
+#title.mp-pre .driver,#title.mp-pre #b-race,#title.mp-pre #b-weekly,#title.mp-pre .row2,#title.mp-pre .yt,#title.mp-pre .key-legend,#title.mp-pre .foot,#title.mp-pre .t-more,#title.mp-pre #t-next,#title.mp-pre .ccu{display:none!important}
 .cheems-spot,.fesse{position:relative}
 /* a small Cheems hiding behind Settings (and then behind "fesse"), peeking out now and then until you find him */
 .cheems-hint{position:absolute;right:-6px;bottom:60%;width:34px;height:34px;pointer-events:none;z-index:-1;transform-origin:bottom center;animation:cheemsPeek 4.5s ease-in-out infinite}
@@ -532,7 +544,7 @@ body.touch .key-legend{display:none}
   <button id="b-race" class="btn go" disabled>Race now</button>
   <button id="b-weekly" class="btn weekly" type="button">⭐ Weekly race</button>
   <div class="row2"><button class="btn" data-open="vehicle">Customize <span class="coins" id="t-coins">🪙 0</span></button><button class="btn" data-open="past">More races</button></div>
-  <div class="row2"><button class="btn dark" id="b-mp">Multiplayer</button><button class="btn dark" data-open="board">Leaderboard</button></div>
+  <div class="row2"><button class="btn dark" id="b-mp">Multiplayer<span class="mp-badge" id="mp-count" hidden title="Parties open right now">0</span></button><button class="btn dark" data-open="board">Leaderboard</button></div>
   <a class="btn yt" href="https://youtube.com/@NeoDogez" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#ff0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/><path fill="#fff" d="M9.6 15.6 15.8 12 9.6 8.4z"/></svg>Subscribe to NeoDogez</a>
   <div class="keys key-legend" aria-label="Controls">
     <div class="key"><span><kbd>W</kbd><kbd>↑</kbd></span>Throttle</div>
@@ -3296,24 +3308,24 @@ function buildCosmetics(cos, ghost) {
       // a standing Shiba Inu, like a figurine: slim red-sesame body on long legs, cream "urajiro" on the chest,
       // belly, legs and face, fox-like muzzle, upright triangle ears, and the curled tail sitting over the back
       const o = L(0xe08a3c), cr = L(0xf8ecd8), bk = L(0x1a1d22);
-      const z0 = -0.3, y0 = RY, legY = y0 + 0.3;
+      const z0 = -0.3, y0 = RY, legY = y0 + 0.22;
       put(S(0.2), o, 0, legY + 0.14, z0, 0, 0, 0, 0.72, 0.68, 1.55);                  // body
       put(S(0.18), cr, 0, legY + 0.08, z0 + 0.02, 0, 0, 0, 0.62, 0.5, 1.3);           // belly
       put(S(0.14), cr, 0, legY + 0.14, z0 + 0.22, 0, 0, 0, 0.85, 1.1, 0.8);           // chest
-      put(S(0.1), o, 0, legY + 0.3, z0 + 0.3, 0.55, 0, 0, 0.85, 1.25, 0.9);            // neck: leans forward from the chest up into the head
+      put(S(0.1), o, 0, legY + 0.25, z0 + 0.29, 0.5, 0, 0, 0.9, 1.0, 0.9);            // neck: leans forward from the chest up into the head
       put(S(0.07), cr, 0, legY + 0.24, z0 + 0.31, 0, 0, 0, 1, 1.3, 0.8);               // throat
       // legs: orange upper, cream lower with paws; a mid-stride pose
       const leg = (x, z, rx, front) => {
         const g = new THREE.Group(); g.position.set(x, legY + 0.08, z); g.rotation.x = rx; grp.add(g);
-        const up = new THREE.Mesh(C(0.045, 0.04, 0.2, 10), o); up.position.y = -0.1; g.add(up);
-        const lo = new THREE.Mesh(C(0.036, 0.032, 0.2, 10), cr); lo.position.y = -0.26; lo.rotation.x = front ? 0.08 : -0.18; g.add(lo);
-        const paw = new THREE.Mesh(S(0.04), cr); paw.scale.set(1, 0.55, 1.35); paw.position.set(0, -0.37, 0.02); g.add(paw);
+        const up = new THREE.Mesh(C(0.045, 0.04, 0.15, 10), o); up.position.y = -0.075; g.add(up);
+        const lo = new THREE.Mesh(C(0.036, 0.032, 0.14, 10), cr); lo.position.y = -0.19; lo.rotation.x = front ? 0.08 : -0.18; g.add(lo);
+        const paw = new THREE.Mesh(S(0.04), cr); paw.scale.set(1, 0.55, 1.35); paw.position.set(0, -0.27, 0.02); g.add(paw);
         g.traverse(m => { m.castShadow = !ghost; });
       };
       leg(0.08, z0 + 0.2, 0.18, true); leg(-0.08, z0 + 0.2, -0.12, true);
       leg(0.085, z0 - 0.21, -0.2, false); leg(-0.085, z0 - 0.21, 0.14, false);
       // head
-      const hz = z0 + 0.39, hy = legY + 0.44;
+      const hz = z0 + 0.37, hy = legY + 0.36;
       put(S(0.13), o, 0, hy, hz, 0, 0, 0, 1.08, 0.95, 1);                             // skull
       put(S(0.08), cr, 0.05, hy - 0.045, hz + 0.06, 0, 0, 0, 0.85, 0.7, 0.9);         // cream cheeks
       put(S(0.08), cr, -0.05, hy - 0.045, hz + 0.06, 0, 0, 0, 0.85, 0.7, 0.9);
@@ -3882,6 +3894,8 @@ function courseOptions(sel) {
     const k = dateKey(new Date(Date.now() - d * 86400000)), info = courseInfo(k);
     h += `<option value="${k}"${sel === k ? ' selected' : ''}>${d === 0 ? 'Today · ' : ''}${prettyDate(k)}${info ? ' · ' + info.name : ''}</option>`;
   }
+  // weekly races: this week's first, then earlier ones
+  for (const k of allWeekKeys()) { const info = courseInfo(k); h += `<option value="${k}"${sel === k ? ' selected' : ''}>⭐ ${k === currentWeekKey() ? 'This week · ' : ''}${prettyDate(k)}${info ? ' · ' + info.name : ''}</option>`; }
   // beat the Doge Sky Run once and you can host it (or keep it selected if the party already has it)
   for (const k in SECRETS) { const SL = SECRETS[k]; if (store.get(SL.done, false) || sel === SL.key) h += `<option value="${SL.key}"${sel === SL.key ? ' selected' : ''}>${SL.icon} ${SL.name} (secret)</option>`; }
   return h;
@@ -3954,7 +3968,7 @@ async function mpEnterLobby(id) {
   mp.phase = 'queue'; mp.id = id; mp.lobby = null;
   mp.unsub.push(net.db.doc('lobbies/' + id).onSnapshot((s) => {
     if (!s.exists) { if (mp.id === id && (mp.active || mp.phase === 'queue')) mpDisbanded(); return; }
-    mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue();
+    mp.lobby = s.data(); if (modalKind === 'mp') renderMpQueue(); else if (modalKind === 'mpres') renderChat();
     mpLeaderEvents(mp.lobby);
   }));
   openModal('mp');
@@ -3964,6 +3978,11 @@ async function mpEnterLobby(id) {
     if (modalKind === 'mp') renderMpQueue();
     const L = mp.lobby;
     if (L && L.startAt != null && srvNow() >= L.startAt) { clearInterval(mp.timer); mpStart(); return; }
+    // the leader's heartbeat stopped (phone off, tab killed, no signal): the party ends for everyone
+    if (L && L.startAt == null && L.host && L.host !== net.uid && (L.players || {})[L.host] && srvNow() - (L.players[L.host].seen || 0) > MP_STALE + 3000) {
+      net.db.doc('lobbies/' + id).update({ disband: true }).catch(() => {});
+      clearInterval(mp.timer); mpExit(); toast('The party leader left, so the party closed'); return;
+    }
     if ((beat += 250) >= 3000) {   // heartbeat so a closed tab doesn't hold a spot, and our ping for the list
       beat = 0;
       const t0 = Date.now();
@@ -3991,7 +4010,7 @@ async function mpNextRound() {
       const lead = (L.players || {})[L.host] ? L.host : all.length ? all[0][0] : net.uid;
       if (lead !== net.uid) return '';
       const nref = net.db.collection('lobbies').doc();
-      tx.set(nref, { name: L.name || onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: L.bots !== false, collide: L.collide !== false, course: L.course || 'random',
+      tx.set(nref, { name: L.name || onlineName() + "'s party", created: Math.round(srvNow()), startAt: null, bots: L.bots !== false, collide: L.collide !== false, chat: (L.chat || []).slice(-20), course: L.course || 'random',
         key: L.course && L.course !== 'random' ? L.course : randomCourseKey(), host: net.uid, locked: !!L.locked, pw: L.pw || null,
         members: [...new Set([...(L.members || []), ...Object.keys(L.players || {})])], players: { [net.uid]: mpMe() } });
       tx.update(ref, { next: nref.id });
@@ -4022,9 +4041,8 @@ addEventListener('pagehide', () => {
   if (!net.db || !mp.id || !net.uid) return;
   const id = mp.id, L = mp.lobby || {};
   if (net.rt) net.rt.ref('mp/' + id + '/' + net.uid).remove().catch(() => {});
-  const others = Object.entries(L.players || {}).filter(([uid, p]) => uid !== net.uid && p && srvNow() - (p.seen || 0) < MP_STALE);
-  if (!others.length && L.host === net.uid) net.db.doc('lobbies/' + id).delete().catch(() => {});
-  else mpLeaveLobby(id);
+  if (L.host === net.uid) { net.db.doc('lobbies/' + id).update({ disband: true }).catch(() => {}); return; }   // the leader leaving ends the party
+  mpLeaveLobby(id);
 });
 function mpLeaveLobby(id) {
   if (!id || !net.db) return;
@@ -4074,6 +4092,8 @@ function renderMpQueue() {
   const ctl = c.querySelector('#mpq-lead');
   ctl.hidden = !(L && lead && waiting);
   const cb = c.querySelector('#mpq-bots'); if (cb) cb.checked = botsOn;
+  const cc = c.querySelector('#mpq-collide'); if (cc && document.activeElement !== cc) cc.checked = !L || L.collide !== false;
+  renderChat();
   const lk = c.querySelector('#mpq-lock'); if (lk && document.activeElement !== lk) lk.checked = !!(L && L.locked);
   const cs = c.querySelector('#mpq-cs'); if (cs && L && document.activeElement !== cs && cs.value !== (L.course || 'random')) cs.value = L.course || 'random';
   const st = c.querySelector('#mpq-start');
@@ -4103,6 +4123,23 @@ function renderMpQueue() {
     list.append(li);
   });
 }
+// how many parties are open right now, shown on the title's Multiplayer button
+async function countParties() {
+  const el = $('#mp-count'); if (!el || !net.db || state !== 'title' || document.hidden) return;
+  try {
+    const now = srvNow(), docs = (await net.db.collection('lobbies').where('created', '>', now - 3 * 3600000).orderBy('created', 'desc').limit(40).get()).docs;
+    const hosts = new Set();
+    for (const d of docs) {
+      const L = d.data(); if (!L || L.next || L.disband) continue;
+      const live = Object.entries(L.players || {}).filter(([u, p]) => p && now - (p.seen || 0) < MP_STALE), racing = L.startAt != null;
+      if (racing ? now - L.startAt > 10 * 60000 : !live.some(([u]) => u === L.host)) continue;
+      hosts.add(L.host || d.id);
+    }
+    el.textContent = String(hosts.size); el.hidden = !hosts.size;
+    el.title = hosts.size + (hosts.size === 1 ? ' party' : ' parties') + ' open right now';
+  } catch (e) {}
+}
+setInterval(countParties, 20000); setTimeout(countParties, 4000);
 async function renderPartyList() {
   const list = $('#mpj-list'), sub = $('#mpj-sub');
   if (!list || !net.db) return;
@@ -4116,6 +4153,7 @@ async function renderPartyList() {
     const live = Object.entries(L.players || {}).filter(([uid, p]) => p && now - (p.seen || 0) < MP_STALE);
     const racing = L.startAt != null;
     if (racing ? now - L.startAt > 10 * 60000 || !Object.keys(L.players || {}).length : !live.length) continue;
+    if (L.disband || (!racing && L.host && !live.some(([u]) => u === L.host))) continue;   // leader gone: not joinable
     const who = L.host || (live[0] && live[0][0]);
     if (who && hosts.has(who)) continue;   // newest first, so older duplicates from the same player are skipped
     if (who) hosts.add(who);
@@ -4198,7 +4236,7 @@ async function mpTrySpectate(liveId) {
     mp.spec = { id: liveId, goAt };
     closeModal();
     hideCards(); closeMenu();
-    $('#title').hidden = false; $('#t-eyebrow').textContent = 'Spectating'; $('#t-name').textContent = 'Building the road…'; $('#b-race').disabled = true;
+    $('#title').hidden = false; $('#title').classList.add('mp-pre'); $('#t-eyebrow').textContent = 'Spectating'; $('#t-name').textContent = 'Building the road…'; $('#b-race').disabled = true;
     await new Promise(r => setTimeout(r, 30));
     if (!mp.spec || mp.phase !== 'queue') return;
     raceKey = L.key;
@@ -4291,7 +4329,7 @@ async function mpStart() {
   mp.startedAt = srvNow(); mp.endSeen = L.endAt || null; mp.ended = false; mp.noCollide = L.collide === false;
   mp.players = Object.entries(L.players || {}).filter(([uid, p]) => uid === net.uid || (p && L.startAt - (p.seen || 0) < MP_STALE)).map(([uid, p]) => ({ uid, name: cleanName(p && p.name) || 'Driver', color: cleanColor(p && p.color) }));
   closeModal(); closeMenu(); hideCards();
-  $('#title').hidden = false; $('#t-eyebrow').textContent = 'Multiplayer · ' + mp.players.length + (mp.players.length === 1 ? ' racer' : ' racers');
+  $('#title').hidden = false; $('#title').classList.add('mp-pre'); $('#t-eyebrow').textContent = 'Multiplayer · ' + mp.players.length + (mp.players.length === 1 ? ' racer' : ' racers');
   $('#t-name').textContent = 'Building the road…'; $('#b-race').disabled = true;
   await new Promise(r => setTimeout(r, 30));
   try {
@@ -4469,6 +4507,7 @@ function mpRaceLeader() {
 // each is a field on the lobby doc that every client in the party reacts to
 const MP_ACTIONS = {
   end: { title: 'End the race?', text: 'Everyone still driving is stopped and gets a DNF. The results show straight away.', yes: 'End race', run: () => mpEndRace() },
+  leave: { title: 'Leave the party?', text: 'You can join again from the party list if it\'s still open.', yes: 'Leave', run: () => { mpExit(); toast('Left the party'); } },
   disband: { title: 'Disband the party?', text: 'The party closes for everyone and they go back to the title screen.', yes: 'Disband', run: () => mpDisband() }
 };
 let mpConfirmWhat = 'end';
@@ -4493,10 +4532,39 @@ function mpKick(uid) {
   net.db.doc('lobbies/' + mp.id).update({ ['players.' + uid]: firebase.firestore.FieldValue.delete(), kicked: firebase.firestore.FieldValue.arrayUnion(uid) })
     .then(() => toast('Removed from the party')).catch(() => toast('Could not remove that player'));
 }
+const CHAT_HTML = `<div class="chat" id="chat"><div class="chat-log" id="chat-log" aria-live="polite"></div>
+  <form class="chat-bar" id="chat-form"><input id="chat-in" maxlength="120" autocomplete="off" spellcheck="false" placeholder="Chat with the party… (press /)"><button class="btn" type="submit">Send</button></form></div>`;
+function initChat() {
+  const f = $('#chat-form'); if (!f) return;
+  f.onsubmit = (e) => { e.preventDefault(); const i = $('#chat-in'), t = i.value.trim(); if (t) mpSay(t); i.value = ''; };
+  const i = $('#chat-in'); i.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Escape') i.blur(); };
+  renderChat(true);
+}
+function renderChat(force) {
+  const log = $('#chat-log'); if (!log) return;
+  const msgs = (mp.lobby && Array.isArray(mp.lobby.chat) ? mp.lobby.chat : []).slice(-40);
+  const sig = msgs.length + '|' + (msgs.length ? msgs[msgs.length - 1].w : 0);
+  if (!force && log.dataset.sig === sig) return;
+  log.dataset.sig = sig; log.textContent = '';
+  if (!msgs.length) { const p = document.createElement('p'); p.className = 'chat-empty'; p.textContent = 'No messages yet. Say hi!'; log.append(p); }
+  for (const m of msgs) {
+    const p = document.createElement('p'); if (m.u === net.uid) p.className = 'me';
+    const b = document.createElement('b'); b.textContent = (cleanName(m.n) || 'Driver') + ': ';
+    p.append(b, document.createTextNode(String(m.t || '').slice(0, 120))); log.append(p);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+async function mpSay(text) {
+  if (!mp.id || !net.db) return;
+  const msg = { u: net.uid, n: onlineName() || 'Driver', t: text.slice(0, 120), w: Math.round(srvNow()) };
+  const ref = net.db.doc('lobbies/' + mp.id);
+  try { await net.db.runTransaction(async (tx) => { const s = await tx.get(ref); if (!s.exists) return; const chat = (s.data().chat || []).concat([msg]).slice(-40); tx.update(ref, { chat }); }); }
+  catch (e) { toast('Could not send that message'); }
+}
 function mpDisbanded() { if (!mp.id) return; mpExit(); toast('The party leader disbanded the party'); }
 function mpLeaderEvents(L) {
   if (!L) return;
-  if (L.disband && L.host !== net.uid) { mpDisbanded(); return; }
+  if (L.disband) { if (L.host === net.uid) { mpExit(); toast('Your party closed while you were away'); } else mpDisbanded(); return; }
   if ((L.kicked || []).includes(net.uid)) { mpExit(); toast('You were removed from the party'); return; }
   if (mp.active && typeof L.endAt === 'number' && L.endAt > (mp.startedAt || 0) && L.endAt !== mp.endSeen) mpRaceEnded(L.endAt);
 }
@@ -5840,7 +5908,7 @@ function openMenu() {
 function closeMenu() { $('#menu').hidden = true; paused = false; last = performance.now(); }
 function showTitle() {
   if (mp.active || mp.spec) return;
-  state = 'title'; paused = false; closeMenu(); closeModal();
+  state = 'title'; paused = false; closeMenu(); closeModal(); $('#title').classList.remove('mp-pre'); countParties();
   $('#hud').hidden = true; $('#touch').hidden = true; $('#finish').hidden = true;
   car = spawnCar(); orbitA = car.h + Math.PI * 0.75;
   ghostObjs.forEach(g => g.mesh.visible = false);
@@ -6286,17 +6354,20 @@ function openModal(kind) {
         <select class="field mpc-sel mpq-full" id="mpq-cs">${courseOptions(mp.lobby && mp.lobby.course || 'random')}</select>
         <label class="mpq-check"><input type="checkbox" id="mpq-lock"><span>Locked</span><small>password to join</small></label>
         <label class="mpq-check"><input type="checkbox" id="mpq-bots" checked><span>Bots</span><small>fill up to ${MP_FIELD} cars</small></label>
+        <label class="mpq-check"><input type="checkbox" id="mpq-collide" checked><span>Collisions</span><small>off: everyone is a ghost</small></label>
         <div class="mpq-full mpq-pwrow" id="mpq-pwrow" hidden><input class="field" id="mpq-pw" type="text" maxlength="24" placeholder="New password" autocomplete="off" spellcheck="false"><button class="btn" type="button" id="mpq-pwset">Lock</button></div>
         <button class="btn go mpq-full" type="button" id="mpq-start">Start race</button>
       </div>
+      ${CHAT_HTML}
       <button class="btn" type="button" id="mpq-cancel" style="margin-top:12px;width:100%">Leave party</button>`;
-    $('#mpq-cancel').onclick = () => { if (mpIsLeader() && !mp.spec) mpConfirm('disband'); else if (mp.spec) mpExit(false); else closeModal(); };
+    $('#mpq-cancel').onclick = () => mpConfirm(mpIsLeader() && !mp.spec ? 'disband' : 'leave');
     $('#mpq-bots').onchange = (e) => mpSetBots(e.target.checked);
+    $('#mpq-collide').onchange = (e) => mpSetParty({ collide: e.target.checked });
     $('#mpq-cs').onchange = (e) => mpSetCourse(e.target.value);
     $('#mpq-lock').onchange = (e) => { if (e.target.checked) { $('#mpq-pwrow').hidden = false; e.target.checked = false; $('#mpq-pw').focus(); } else mpSetLock(false); };
     $('#mpq-pwset').onclick = () => { const v = $('#mpq-pw').value.trim(); mpSetLock(true, v); if (v) $('#mpq-pwrow').hidden = true; };
     $('#mpq-start').onclick = () => mpPressStart();
-    renderMpQueue();
+    renderMpQueue(); initChat();
     $('#modal').hidden = false;
     return;
   } else if (kind === 'ach') {
@@ -6349,12 +6420,13 @@ function openModal(kind) {
       <p class="eyebrow" id="mpr-place" style="font-size:13px"></p>
       <ol class="board" id="mpr-list" style="margin-top:10px"></ol>
       <button class="btn dark" type="button" id="mpr-watch" style="margin-top:14px;width:100%">Spectate other racers <kbd>←</kbd><kbd>→</kbd></button>
-      <div class="row2" style="margin-top:8px"><button class="btn go" type="button" id="mpr-again">Back to party</button><button class="btn" type="button" id="mpr-exit">Leave party</button></div>`;
+      ${CHAT_HTML}
+      <div class="row2" style="margin-top:8px"><button class="btn go" type="button" id="mpr-again">Next race ›</button><button class="btn" type="button" id="mpr-exit">Leave party</button></div>`;
     $('#mpr-watch').onclick = () => closeModal();
     $('#mpr-again').onclick = () => mpNextRound();
     if (mpIsLeader()) { $('#mpr-exit').textContent = 'Disband party'; $('#mpr-exit').onclick = () => mpConfirm('disband'); }
-    else $('#mpr-exit').onclick = () => mpExit(false);
-    renderMpResults();
+    else $('#mpr-exit').onclick = () => mpConfirm('leave');
+    renderMpResults(); initChat();
     $('#modal').hidden = false;
     return;
   } else if (kind === 'account') {
@@ -6521,6 +6593,7 @@ addEventListener('keydown', (e) => {
     else if (e.code === 'ArrowRight') replay.t += 2;
     return;
   }
+  if (e.code === 'Slash' && $('#chat-in') && (modalKind === 'mp' || modalKind === 'mpres')) { e.preventDefault(); $('#chat-in').focus(); return; }
   if (state === 'freecam') {
     if (e.code === 'Escape') exitFreecam();
     if (e.code === 'Space') e.preventDefault();
@@ -6579,7 +6652,7 @@ $('#wb-lobby').onclick = () => { if (mp.id) openModal('mp'); else toast('You joi
 $('#wb-leave').onclick = () => mpExit(false);
 $('#m-retry').onclick = () => { if (!mp.active) restart(); };
 $('#m-resume').onclick = () => closeMenu();
-$('#m-leave').onclick = () => { if (mpIsLeader()) { mpConfirm('disband'); return; } closeMenu(); mpExit(); toast('Left the party'); };
+$('#m-leave').onclick = () => mpConfirm(mpIsLeader() ? 'disband' : 'leave');
 $('#m-end').onclick = () => mpConfirm('end');
 $('#m-info').onclick = () => showTitle();
 $('#f-retry').onclick = () => restart();
