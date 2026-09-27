@@ -309,6 +309,9 @@ body.touch #flip .k-touch{display:inline}
 .doge-say{position:absolute;left:150px;top:40px;white-space:nowrap;font:800 26px/1 "Comic Sans MS","Comic Neue",cursive;color:#ff2fb3;text-shadow:0 2px 0 #fff,0 0 12px #fff;transform:rotate(-8deg)}
 .btn.weekly{background:linear-gradient(90deg,#ffe38a,#ffc93c);border-color:#e0a91a;color:#3a2a00;display:flex;justify-content:center;align-items:center;gap:8px}
 .btn.weekly small{font:700 10px/1 var(--ui);letter-spacing:.06em;opacity:.75}
+.board .acts{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.gbtn.rpbtn{min-width:34px;padding:0 8px;font-size:12px}
+.rp-top .who{font:800 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;opacity:.9}
 .cheems-spot,.fesse{position:relative}
 /* a small Cheems hiding behind Settings (and then behind "fesse"), peeking out now and then until you find him */
 .cheems-hint{position:absolute;right:-6px;bottom:60%;width:34px;height:34px;pointer-events:none;z-index:-1;transform-origin:bottom center;animation:cheemsPeek 4.5s ease-in-out infinite}
@@ -638,7 +641,7 @@ body.touch .key-legend{display:none}
   <div class="wb-btns"><button class="btn" id="wb-res">Results</button><button class="btn" id="wb-lobby">Lobby</button><button class="btn" id="wb-leave">Leave</button></div>
 </div>
 <div id="replay" hidden>
-  <div class="rp-top"><span class="rec">Replay</span><span id="rp-time">0:00.000</span><span class="cam" id="rp-cam">TV</span></div>
+  <div class="rp-top"><span class="rec">Replay</span><span class="who" id="rp-who"></span><span id="rp-time">0:00.000</span><span class="cam" id="rp-cam">TV</span></div>
   <div class="rp-bar">
     <div class="rp-track" id="rp-track"><i id="rp-fill"></i></div>
     <div class="rp-btns">
@@ -5532,8 +5535,19 @@ function updateFx(dt) {
 /* ---------------- replay: TV cameras over your last run ---------------- */
 let lastRunFrames = null, replay = null;
 const RP_CAMS = ['TV', 'Chase', 'Heli', 'Bumper'];
-function startReplay() {
-  if (!lastRunFrames || lastRunFrames.length < 24) return;
+// replay anyone's run from the leaderboard: their recorded path, driven by a copy of their car
+function watchReplay(id, who) {
+  const g = ghostData(id); if (!g || !g.f || g.f.length < 24) { toast('No replay saved for that run'); return; }
+  const back = state === 'title' ? 'title' : 'finished';
+  const keepSel = ghostSel; ghostSel = []; setupGhosts();   // just the one car on track while you watch
+  let mesh = null;
+  if (!(id === 'me' || id.startsWith('run:'))) { mesh = makeCarMesh(g.color, false, g.tex, g.cos || {}); scene.add(mesh); carMesh.visible = false; }
+  startReplay({ f: g.f, hz: g.hz || 30, mesh, back, who, keepSel });
+}
+function startReplay(opt) {
+  opt = opt && opt.f ? opt : null;
+  const frames = opt ? opt.f : lastRunFrames;
+  if (!frames || frames.length < 24) return;
   hideCards(); closeMenu(); closeModal();
   $('#hud').hidden = true; $('#touch').hidden = true; $('#replay').hidden = false;
   // trackside cameras: every ~90 m, alternating sides, a little above the road
@@ -5543,26 +5557,31 @@ function startReplay() {
     const x = T.X[i] - T.TZ[i] * l, z = T.Z[i] + T.TX[i] * l;
     tv.push({ i, x, z, y: Math.max(groundY(x, z, i), T.Y[i]) + 3.6 });
   }
-  replay = { f: lastRunFrames, n: lastRunFrames.length / 6, t: 0, speed: 1, playing: true, cam: 0, tv, idx: 0, kmh: 0 };
+  replay = { keepSel: opt ? opt.keepSel : null, f: frames, hz: opt ? opt.hz : 30, mesh: opt ? opt.mesh : null, back: opt ? opt.back : 'finished', n: frames.length / 6, t: 0, speed: 1, playing: true, cam: 0, tv, idx: 0, kmh: 0 };
+  $('#rp-who').textContent = opt && opt.who ? opt.who : 'Your run';
   state = 'replay'; clock = 0;
   $('#rp-play').textContent = 'Pause'; $('#rp-speed').textContent = '1×'; $('#rp-cam').textContent = RP_CAMS[0];
 }
 function exitReplay() {
   $('#replay').hidden = true;
+  if (replay && replay.mesh) { scene.remove(replay.mesh); disposeTree(replay.mesh); carMesh.visible = true; }
+  if (replay && replay.keepSel) { ghostSel = replay.keepSel; setupGhosts(); }
+  if (replay && replay.back === 'title') { replay = null; showTitle(); return; }
   replay = null; state = 'finished'; clock = finishTime || 0;
   $('#hud').hidden = false; $('#finish').hidden = false;
   orbitA = car.h + Math.PI;
 }
 function replayPose(dt) {
-  const R = replay, len = (R.n - 1) / 30;
+  const R = replay, hz = R.hz || 30, len = (R.n - 1) / hz;
   if (R.playing) R.t += dt * R.speed;
   if (R.t > len + 1.5) R.t = 0;
-  const f = Math.min(Math.max(R.t, 0) * 30, R.n - 1), k = Math.min(Math.floor(f), R.n - 2), u = f - k, a = k * 6, b = a + 6, F = R.f;
+  const f = Math.min(Math.max(R.t, 0) * hz, R.n - 1), k = Math.min(Math.floor(f), R.n - 2), u = f - k, a = k * 6, b = a + 6, F = R.f;
   V.x = lerp(F[a], F[b], u); V.y = lerp(F[a + 1], F[b + 1], u); V.z = lerp(F[a + 2], F[b + 2], u);
   V.h = lerpAngle(F[a + 3], F[b + 3], u); V.pitch = lerp(F[a + 4], F[b + 4], u); V.roll = lerp(F[a + 5], F[b + 5], u);
-  R.kmh = lerp(R.kmh, Math.hypot(F[b] - F[a], F[b + 2] - F[a + 2]) * 30 * 3.6, 0.2);
-  poseMesh(carMesh, V.x, V.y, V.z, V.h, V.pitch, V.roll);
-  const ud = carMesh.userData, rest = SUS_LEN - GRAV / 4 / SUS_K;
+  R.kmh = lerp(R.kmh, Math.hypot(F[b] - F[a], F[b + 2] - F[a + 2]) * hz * 3.6, 0.2);
+  const M = R.mesh || carMesh;
+  poseMesh(M, V.x, V.y, V.z, V.h, V.pitch, V.roll);
+  const ud = M.userData, rest = SUS_LEN - GRAV / 4 / SUS_K;
   ud.pivots.forEach((p, i) => { p.position.y = SUS_TOP - rest; if (WHEELS[i][2]) p.rotation.y = 0; ud.wheels[i].rotation.x += R.kmh / 3.6 * dt * R.speed / WHEEL_R; });
   nearestHash(V.x, V.z); if (nearI >= 0) R.idx = nearI;
   clock = R.t;
@@ -5927,7 +5946,16 @@ function renderBoard(list, sub) {
       if (state === 'countdown' || state === 'racing' || state === 'finished') setupGhosts();
       renderBoard(list, sub);
     };
-    li.append(rk, nm, tm, btn);
+    // watch the run: needs its recorded path (a ghost), so drivers' runs load from their saved ghost
+    const rp = document.createElement('button'); rp.className = 'gbtn rpbtn'; rp.textContent = '▶'; rp.title = 'Watch replay'; rp.setAttribute('aria-label', 'Watch ' + s.name + '\'s replay');
+    rp.disabled = !s.has || !(state === 'title' || state === 'finished');
+    if (!(state === 'title' || state === 'finished')) rp.title = 'Replays can be watched from the title or finish screen';
+    rp.onclick = async () => {
+      if (s.id.startsWith('drv:') && !ghostData(s.id)) { rp.textContent = '…'; rp.disabled = true; if (!await fetchGhost(s.uid)) { toast('No replay saved for that run'); rp.textContent = '▶'; return; } }
+      watchReplay(s.id, s.name + ' · ' + fmt(s.t));
+    };
+    const acts = document.createElement('span'); acts.className = 'acts'; acts.append(rp, btn);
+    li.append(rk, nm, tm, acts);
     list.append(li);
   });
 }
@@ -6159,7 +6187,9 @@ function openModal(kind) {
     }
     const secLis = Object.keys(SECRETS).filter(secretKnown).map(k => { const b = store.get(SECRETS[k].best, null); return `<li><button data-secret="${k}"><span class="no">${SECRETS[k].icon}</span><span>${SECRETS[k].name}</span><span class="tm">${b != null ? fmt(b) : '—'}</span></button></li>`; }).join('');
     const secretRow = secLis ? `<h3>Secret</h3><ul class="past">${secLis}</ul>` : '';
-    c.innerHTML = `<h2>Races</h2><p class="sub">Every day has its own route. A new one unlocks at midnight.</p>${secretRow}<h3>Coming up</h3><ul class="past">${upRows}</ul><h3>Today and past races</h3><ul class="past">${rows}</ul>`;
+    const cw = currentWeekKey();
+    const weekLis = allWeekKeys().map(k => { const info = courseInfo(k), r = getRuns(k); return `<li><button data-k="${k}"><span class="no">⭐</span><span class="${k === raceKey ? 'cur' : ''}">${k === cw ? 'This week · ' : ''}${prettyDate(k)}${info ? ' · ' + info.name : ''}${k === raceKey ? ' · loaded' : ''}</span><span class="tm">${r.length ? fmt(r[0].t) : '—'}</span></button></li>`; }).join('');
+    c.innerHTML = `<h2>Races</h2><p class="sub">Every day has its own route. A new one unlocks at midnight.</p>${secretRow}<h3>Weekly races · ${WEEK_POINTS}× ranking</h3><ul class="past">${weekLis}</ul><h3>Coming up</h3><ul class="past">${upRows}</ul><h3>Today and past races</h3><ul class="past">${rows}</ul>`;
     const tick = () => document.querySelectorAll('[data-unlock]').forEach(el => { el.textContent = unlockIn(el.dataset.unlock); });
     clearInterval(modalTimer); modalTimer = setInterval(tick, 1000);
     c.querySelectorAll('.past button[data-k]').forEach(b => b.onclick = () => { closeModal(); loadRace(b.dataset.k); });
@@ -6384,8 +6414,16 @@ const WEEK_FIRST = 'W2026-09-21.2', WEEK_FIRST_END = '2026-10-04', WEEK_VOID = '
 const weekKeyCache = {};
 function currentWeekKey() {
   const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay());   // weeks run Sunday to Saturday
-  const base = dateKey(d);
-  if (base === '2026-09-27') return WEEK_FIRST;   // still the first course's run
+  return weekKeyFor(dateKey(d));
+}
+// every weekly race so far, newest first (the first course ran Sep 21 to Oct 3; Sunday weeks from Oct 4)
+function allWeekKeys() {
+  const out = [WEEK_FIRST], d = dateFromKey('2026-10-04'), now = Date.now();
+  for (; d.getTime() <= now; d.setDate(d.getDate() + 7)) out.push(weekKeyFor(dateKey(d)));
+  return out.reverse();
+}
+function weekKeyFor(base) {
+  if (base === '2026-09-27' || base < '2026-09-27') return WEEK_FIRST;   // still the first course's run
   if (weekKeyCache[base]) return weekKeyCache[base];
   let best = null;
   for (let n = 0; n < 6; n++) { const k = 'W' + base + '.' + n, info = courseInfo(k); if (info && (!best || info.length < best.len)) best = { k, len: info.length }; }
