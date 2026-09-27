@@ -3765,12 +3765,19 @@ function devIcon(dev) {
 // daily times from before this date were voided: they don't show on any board and score no ranking points
 const BOARD_EPOCH = '2026-09-25';
 const boardVoid = (key) => /^\d{4}-\d{2}-\d{2}$/.test(key) && key < BOARD_EPOCH;
+// a time only counts if it was set on that race's own day (with 14 h of slack either side for time zones):
+// replays of old maps, from before the boards locked at midnight, don't score
+function setOnTheDay(key, b) {
+  if (!b || typeof b.ts !== 'number') return false;
+  const d0 = dateFromKey(key).getTime(), H = 3600000;
+  return b.ts >= d0 - 14 * H && b.ts < d0 + 38 * H;
+}
 function onlineRows() {
   const out = [];
   if (boardVoid(raceKey)) return out;
   for (const [uid, d] of net.drivers) {
     const b = d && d.best && d.best[raceKey];
-    if (!b || typeof b.t !== 'number' || !(b.t > 5)) continue;
+    if (!b || typeof b.t !== 'number' || !(b.t > 5) || !setOnTheDay(raceKey, b)) continue;
     out.push({ uid, name: cleanName(d.name) || 'Driver', color: cleanColor(d.color), t: b.t, dev: typeof b.dev === 'string' ? b.dev : null, splits: Array.isArray(b.splits) ? b.splits : null, me: uid === net.uid });
   }
   return out.sort((a, b) => a.t - b.t);
@@ -3786,7 +3793,7 @@ function standings() {
     if (!best || typeof best !== 'object') continue;
     for (const k in best) {
       const b = best[k];
-      if (boardVoid(k) || !b || typeof b.t !== 'number' || !(b.t > 5)) continue;
+      if (boardVoid(k) || !b || typeof b.t !== 'number' || !(b.t > 5) || !setOnTheDay(k, b)) continue;
       (days[k] || (days[k] = [])).push({ uid, t: b.t });
     }
   }
