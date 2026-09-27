@@ -3707,8 +3707,10 @@ function packGhost(frames) {
   for (let i = 0; i + 5 < frames.length; i += 12) for (let k = 0; k < 6; k++) f.push(frames[i + k]);
   return { hz: 15, f };
 }
+// a day's leaderboard is only open on that day: once midnight passes its board is final (you can still race it for fun)
+const boardOpen = (key) => key === dateKey(new Date());
 async function postTime(key, entry) {
-  if (!net.db || !net.writable || !onlineName()) return false;
+  if (!net.db || !net.writable || !onlineName() || !boardOpen(key)) return false;
   try {
     return await netQueue(async () => {
       const ref = net.db.doc('drivers/' + net.uid), s = await ref.get();
@@ -5719,7 +5721,7 @@ function showTitle() {
 function renderTitle() {
   renderCoins();
   const isToday = raceKey === todayKey, sec = secret.active && SECRETS[secret.level];
-  $('#t-eyebrow').textContent = sec ? 'Secret level · ' + sec.icon : (isToday ? "Today's race" : 'Past race') + ' · #' + raceNo(raceKey);
+  $('#t-eyebrow').textContent = sec ? 'Secret level · ' + sec.icon : (isToday ? "Today's race" : 'Past race') + ' · #' + raceNo(raceKey) + (isToday || boardOpen(raceKey) ? '' : ' · 🔒 board final');
   $('#t-name').textContent = T.name;
   $('#t-date').textContent = sec ? 'Secret' : prettyDate(raceKey);
   $('#t-len').textContent = (T.length / 1000).toFixed(2) + ' km';
@@ -5759,7 +5761,7 @@ function renderBoard(list, sub) {
   if (sub) {
     sub.textContent = '';
     const head = document.createElement('span');
-    head.textContent = `${T.name} · ${prettyDate(raceKey)}. `;
+    head.textContent = `${T.name} · ${prettyDate(raceKey)}. ` + (boardOpen(raceKey) ? '' : '🔒 Final results: this race is over, so new times no longer count. ');
     sub.append(head);
     if (net.ready) {
       const live = document.createElement('span'); live.className = 'live'; live.textContent = 'Live';
@@ -5846,6 +5848,7 @@ function renderBoardNote(entry, posting) {
   const el = $('#f-board-note');
   el.textContent = '';
   if (!net.db) { el.textContent = 'Saved on this device.'; return; }
+  if (!secret.active && !boardOpen(raceKey)) { el.textContent = '🔒 This race is over, so its leaderboard is final. Your time is saved on this device.'; return; }
   if (!onlineName()) {
     el.append(document.createTextNode('This time is only on this device. '));
     const l = document.createElement('button'); l.className = 'inline-link'; l.textContent = net.uid ? 'Pick a driver name to post it' : 'Sign in to post it';
