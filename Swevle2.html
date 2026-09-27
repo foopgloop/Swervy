@@ -3786,7 +3786,7 @@ const boardVoid = (key) => /^\d{4}-\d{2}-\d{2}$/.test(key) && key < BOARD_EPOCH;
 // replays of old maps, from before the boards locked at midnight, don't score
 function setOnTheDay(key, b) {
   if (!b || typeof b.ts !== 'number') return false;
-  if (isWeekly(key)) { const w0 = weekStart(key).getTime(), H = 3600000; return b.ts >= w0 - 14 * H && b.ts < w0 + (7 * 24 + 14) * H; }
+  if (isWeekly(key)) { const H = 3600000; return !key.startsWith(WEEK_VOID) && b.ts >= weekStart(key).getTime() - 14 * H && b.ts < weekEnd(key) + 14 * H; }
   const d0 = dateFromKey(key).getTime(), H = 3600000;
   return b.ts >= d0 - 14 * H && b.ts < d0 + 38 * H;
 }
@@ -6378,17 +6378,22 @@ function openModal(kind) {
 // ---- weekly race: one easy route for the whole week, worth 3x ranking points ----
 // "easy" so lots of people can post close times: the shortest of six candidate routes, all asphalt, no shortcuts
 const WEEK_POINTS = 3;
+// the first weekly course (picked when weeks started on Monday) stays the weekly race until the end of Saturday Oct 3;
+// Sunday-to-Saturday weeks start after it. The course briefly shown for the week of Sep 27 is void, so nobody scores twice.
+const WEEK_FIRST = 'W2026-09-21.2', WEEK_FIRST_END = '2026-10-04', WEEK_VOID = 'W2026-09-27';
 const weekKeyCache = {};
 function currentWeekKey() {
   const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay());   // weeks run Sunday to Saturday
   const base = dateKey(d);
+  if (base === '2026-09-27') return WEEK_FIRST;   // still the first course's run
   if (weekKeyCache[base]) return weekKeyCache[base];
   let best = null;
   for (let n = 0; n < 6; n++) { const k = 'W' + base + '.' + n, info = courseInfo(k); if (info && (!best || info.length < best.len)) best = { k, len: info.length }; }
   return (weekKeyCache[base] = best ? best.k : 'W' + base + '.0');
 }
+const weekEnd = (k) => k === WEEK_FIRST ? dateFromKey(WEEK_FIRST_END).getTime() : weekStart(k).getTime() + 7 * 86400000;
 function weekEndsIn(k) {
-  const ms = weekStart(k).getTime() + 7 * 86400000 - Date.now();
+  const ms = weekEnd(k) - Date.now();
   if (ms <= 0) return 'ended';
   const h = Math.floor(ms / 3600000);
   return h >= 24 ? Math.floor(h / 24) + 'd ' + (h % 24) + 'h' : h + 'h ' + Math.floor(ms % 3600000 / 60000) + 'm';
