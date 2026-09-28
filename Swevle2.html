@@ -319,6 +319,27 @@ body.touch #flip .k-touch{display:inline}
 #race-chat p.me b{color:#7ff0e4}
 #race-chat p.old{opacity:0}
 body.touch #race-chat{top:calc(200px + env(safe-area-inset-top,0px))}
+.pf-card{border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--paper-2)}
+.pf-top{display:flex;gap:14px;align-items:center;padding:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--pc) 35%,#fff),var(--paper-2))}
+.pf-car{width:96px;height:auto;filter:drop-shadow(0 6px 8px rgba(0,0,0,.2))}
+.pf-name{margin:0;font:400 30px/1 var(--display);text-transform:uppercase;word-break:break-word}
+.pf-sub{margin:6px 0 0;font:700 12px/1.3 var(--ui);color:var(--muted)}
+.pf-parts{margin:6px 0 0;font-size:18px;letter-spacing:2px}
+.pf-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line)}
+.pf-grid div{padding:10px 8px;text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pf-grid div:nth-child(3n){border-right:0}
+.pf-grid b{display:block;font:800 18px/1.1 var(--mono);color:var(--ink)}
+.pf-grid b small{font-size:10px;color:var(--muted)}
+.pf-grid span{font:800 9px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pf-secret{margin:0;padding:10px 12px;font:700 12px/1.3 var(--ui);color:var(--ink)}
+li[data-uid] .nm{cursor:pointer}
+li[data-uid] .nm:hover{text-decoration:underline dotted}
+.tut{position:absolute;left:50%;top:calc(96px + env(safe-area-inset-top,0px));transform:translateX(-50%);max-width:min(520px,calc(100vw - 32px));padding:12px 16px;border-radius:10px;background:rgba(16,26,33,.78);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;font:700 15px/1.4 var(--ui);text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:auto}
+.tut small{display:block;margin-top:4px;font:600 11px/1.3 var(--ui);opacity:.75}
+.tut kbd{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.6);box-shadow:none}
+.tut .tut-step{font:800 10px/1 var(--ui);letter-spacing:.12em;color:#ffd36b;display:block;margin-bottom:6px}
+.tut button{display:block;margin:6px auto 0;border:0;background:none;color:#fff;opacity:.7;font:700 11px var(--ui);text-decoration:underline;cursor:pointer}
+body.touch .tut{top:calc(150px + env(safe-area-inset-top,0px))}
 .chat{margin-top:12px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);overflow:hidden}
 .chat-log{max-height:130px;min-height:54px;overflow:auto;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
 .chat-log p{margin:0;font:500 13px/1.35 var(--ui);word-break:break-word}
@@ -522,6 +543,7 @@ body.touch .key-legend{display:none}
   <div id="flip" hidden>You flipped · <span class="k-key">press <kbd>R</kbd></span><span class="k-touch">tap ↺</span> to recover</div>
   <canvas id="minimap" width="300" height="300" aria-label="Minimap"></canvas>
   <div id="race-chat" aria-live="polite" hidden></div>
+  <div class="tut" id="tut" hidden></div>
   <div class="hud-box" id="hud-left">
     <div><div class="hl">Checkpoint</div><div class="hr"><div class="segs" id="cp-segs"></div><b id="cp-num">0</b></div></div>
     <div><div class="hl">Gear</div><div class="hr"><div class="gbar"><i id="gear-fill"></i></div><b id="gear-num">1</b></div></div>
@@ -3540,6 +3562,7 @@ function simStep() {
   if (state === 'racing' || state === 'finished') clock += DT;
   if (state !== 'racing') return;
   raceTime += DT;
+  tutTick();
   trackStats(DT);
   if (++recCounter % 4 === 0) snap(car, rec);
   const ci = T.cps[nextCp];
@@ -3588,8 +3611,31 @@ function restart() {
   $('#rival').hidden = !toBeat || mp.active;
   if (toBeat) $('#rival-t').textContent = fmt(toBeat.t) + ' · ' + toBeat.name;
   ensureAudio();
+  if (!tut.on) tutStart(); else tutShow();
 }
 let raceRecovers = 0, raceFlag = '', acPos = null;
+// ---- first-race tutorial: one tip at a time, each ticks off when you do it ----
+const TUT = [
+  { k: 'Hold <kbd>W</kbd> or <kbd>↑</kbd> to drive', t: 'Hold ▲ to drive', done: () => Math.hypot(car.vx, car.vz) * 3.6 > 40 },
+  { k: 'Steer with <kbd>A</kbd> <kbd>D</kbd> or <kbd>←</kbd> <kbd>→</kbd>', t: 'Steer with ◀ ▶', done: () => tut.steered },
+  { k: 'In a corner, tap <kbd>Space</kbd> to drift', t: 'In a corner, tap HAND to drift', sub: 'Drifting and jumps fill your boost meter', done: () => car.boost > 0.6 },
+  { k: 'Hold <kbd>Shift</kbd> to boost', t: 'Hold BOOST to use it', sub: 'Save it for straights', done: () => car.boosting },
+  { k: 'Go through every checkpoint gate to the finish', t: 'Go through every checkpoint gate', sub: 'Stuck or flipped? Press <kbd>R</kbd> to reset to your last checkpoint.', done: () => nextCp >= 1 }
+];
+const tut = { on: false, i: 0, steered: false, doneT: 0 };
+function tutStart() { if (store.get('ds:tutDone', false) || mp.active || secret.active) return; tut.on = true; tut.i = 0; tut.steered = false; tutShow(); }
+function tutEnd() { tut.on = false; store.set('ds:tutDone', true); const el = $('#tut'); if (el) el.hidden = true; }
+function tutShow() {
+  const el = $('#tut'), st = TUT[tut.i], touchUI = document.body.classList.contains('touch');
+  if (!st) { tutEnd(); return; }
+  el.innerHTML = `<span class="tut-step">TIP ${tut.i + 1} OF ${TUT.length}</span>${touchUI ? st.t : st.k}${st.sub ? `<small>${st.sub}</small>` : ''}<button type="button" id="tut-skip">Skip tips</button>`;
+  el.hidden = false; $('#tut-skip').onclick = tutEnd;
+}
+function tutTick() {
+  if (!tut.on || state !== 'racing') return;
+  const inp = inputNow(); if (inp.steer) tut.steered = true;
+  if (TUT[tut.i].done()) { tut.i++; beep(988, 0.08, 0.06); tutShow(); }
+}
 // the fastest believable time for a course; anything quicker is ignored on every board
 function timeFloor(key) {   // only truly impossible times: the whole route at 100 m/s (twice the top speed)
   const info = key === raceKey && T ? T : courseInfo(key); if (!info) return 0;
@@ -3610,6 +3656,7 @@ function recover() {
 
 function finishRace() {
   state = 'finished'; finishTime = raceTime;
+  if (tut.on) tutEnd();
   orbitA = car.h + Math.PI;
   beep(784, 0.12, 0.1); setTimeout(() => beep(1175, 0.22, 0.1), 130);
   showBig('FINISH', 1100);
@@ -4626,6 +4673,38 @@ function renderRaceChat() {
   }
 }
 setInterval(renderRaceChat, 500);
+// ---- profile cards: tap a driver's name on any board ----
+document.addEventListener('click', (e) => {
+  const nm = e.target.closest('li[data-uid] .nm'); if (!nm) return;
+  const uid = nm.closest('li').dataset.uid; if (!uid || uid === 'me' || !net.drivers.get(uid)) return;
+  profileUid = uid; openModal('profile');
+});
+let profileUid = null;
+document.addEventListener('click', (e) => { if (e.target.id === 'tut-again') { store.set('ds:tutDone', false); toast('Beginner tips will show on your next race'); } });
+function profileHTML(uid) {
+  const d = net.drivers.get(uid) || {}, st = d.stats || {}, me = uid === net.uid;
+  const name = cleanName(d.name) || 'Driver', col = cleanColor(d.color);
+  const rank = standings().findIndex(r => r.uid === uid), row = rank >= 0 ? standings()[rank] : null;
+  const days = Object.keys(d.best || {}).filter(k => !isWeekly(k)).length;
+  const dev = Object.values(d.best || {}).map(b => b && b.dev).filter(Boolean).pop();
+  const ach = Array.isArray(d.ach) ? d.ach.length : 0;
+  const mpw = d.mp && d.mp.wins || 0, mpr = d.mp && d.mp.races || 0;
+  const icon = carIcon({ id: 'drv:' + uid, uid, me, color: col });
+  const cos = cleanCos(d.cos), parts = Object.values(cos).map(id => COS[id] && COS[id].icon).filter(Boolean).join(' ');
+  const cell = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+  const secrets = Object.keys(SECRETS).filter(k => d.secret && typeof d.secret[k] === 'number').map(k => `${SECRETS[k].icon} ${fmt(d.secret[k])}`).join(' · ');
+  return `<div class="pf-card" style="--pc:${col}">
+    <div class="pf-top">${icon ? `<img class="pf-car" src="${icon}" alt="">` : ''}
+      <div><h2 class="pf-name"></h2><p class="pf-sub">${row ? `#${rank + 1} in Rankings · ${row.pts} pts` : 'Unranked'}${dev ? ' · ' + DEV_ICON[dev][0].replace('Set on a ', 'plays on ') : ''}</p>
+      ${parts ? `<p class="pf-parts" title="Cosmetics">${parts}</p>` : ''}</div></div>
+    <div class="pf-grid">
+      ${cell(row ? row.wins : 0, 'daily wins')}${cell(row ? row.podiums : 0, 'podiums')}${cell(days, 'days raced')}
+      ${cell(mpw, 'party wins')}${cell(mpr, 'party races')}${cell(ach + '/' + ACHS.length, 'achievements')}
+      ${cell(st.topSpeed ? Math.round(st.topSpeed) + '<small> km/h</small>' : '—', 'top speed')}${cell(st.bestAir ? st.bestAir.toFixed(1) + '<small> s</small>' : '—', 'biggest air')}${cell(st.km ? Math.round(st.km) + '<small> km</small>' : '—', 'driven')}
+    </div>
+    ${secrets ? `<p class="pf-secret">Secret bests: ${secrets}</p>` : ''}
+  </div>`;
+}
 function renderChat(force) {
   const log = $('#chat-log'); if (!log) return;
   const msgs = (mp.lobby && Array.isArray(mp.lobby.chat) ? mp.lobby.chat : []).slice(-40);
@@ -4727,7 +4806,7 @@ function renderMpRankings(list, sub) {
   list.textContent = '';
   if (!rows.length) { const li = document.createElement('li'); li.innerHTML = '<span></span><span class="nm">No multiplayer races yet. Press Multiplayer on the title screen to queue.</span>'; list.append(li); return; }
   rows.slice(0, 100).forEach((r, i) => {
-    const li = document.createElement('li');
+    const li = document.createElement('li'); li.dataset.uid = r.uid;
     const me = r.uid === net.uid;
     li.className = (me ? 'me ' : '') + (i < 3 && r.wins ? 'top' + (i + 1) : '');
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
@@ -5065,7 +5144,7 @@ function renderSecretBoard(list, sub) {
   list.textContent = '';
   if (!rows.length) { const li = document.createElement('li'); li.innerHTML = '<span></span><span class="nm">No times yet. Be the first!</span>'; list.append(li); return; }
   rows.slice(0, 100).forEach((r, i) => {
-    const li = document.createElement('li'); const me = r.uid === net.uid || r.uid === 'me'; if (me) li.className = 'me';
+    const li = document.createElement('li'); li.dataset.uid = r.uid; const me = r.uid === net.uid || r.uid === 'me'; if (me) li.className = 'me';
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
     const nm = document.createElement('span'); nm.className = 'nm';
     const icon = carIcon({ id: 'drv:' + r.uid, uid: r.uid, me, color: cleanColor(r.d.color) });
@@ -6077,7 +6156,7 @@ function renderBoard(list, sub) {
   list.textContent = '';
   if (!src.length) { const li = document.createElement('li'); li.innerHTML = '<span></span><span class="nm">No times yet. Finish a run to set one.</span>'; list.append(li); return; }
   src.forEach((s, i) => {
-    const li = document.createElement('li');
+    const li = document.createElement('li'); if (s.uid) li.dataset.uid = s.uid; else if (s.me && net.uid) li.dataset.uid = net.uid;
     if (s.me) li.className = 'me';
     const medal = s.id !== 'rival' && s.id !== 'ultra' ? medalFor(s.t) : null;
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
@@ -6137,7 +6216,7 @@ function renderRankings(list, sub) {
   list.textContent = '';
   if (!rows.length) { const li = document.createElement('li'); li.innerHTML = '<span></span><span class="nm">No ranked drivers yet. Sign in and finish a race to score points.</span>'; list.append(li); return; }
   rows.slice(0, 100).forEach((r, i) => {
-    const li = document.createElement('li');
+    const li = document.createElement('li'); li.dataset.uid = r.uid;
     li.className = (r.me ? 'me ' : '') + (i < 3 ? 'top' + (i + 1) : '');
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = String(i + 1);
     const nm = document.createElement('span'); nm.className = 'nm';
@@ -6296,6 +6375,7 @@ function openModal(kind) {
       <p>Ramps give a boost. You leave a ramp faster than you hit it.</p>
       <p>Reverse gives a boost too. Above 30 km/h backwards, holding reverse keeps speeding you up.</p>
       <p>The boost meter fills while you drift and while you are in the air, up to 3 seconds. Hold <kbd>Shift</kbd> to spend it.</p>
+      <p><button class="inline-link" type="button" id="tut-again">Show the beginner tips again on your next race</button></p>
       <h3>Paint</h3>
       <p>Customize opens the garage: paint the car in Paint, or spend coins in the Shop on hood ornaments, engine parts, roof toppers, wings and stickers. Paint straight onto the car with the pencil, brush or fill, pick colours off the car, or start from a preset. With a driver name, other racers see your paint on your ghost.</p>
       <h3>Rolling over</h3>
@@ -6482,6 +6562,12 @@ function openModal(kind) {
       <div class="row2"><button class="btn go" type="button" id="sec-go">Race it</button><button class="btn" type="button" id="sec-later">Later</button></div>`;
     $('#sec-go').onclick = () => loadSecret();
     $('#sec-later').onclick = () => closeModal();
+    $('#modal').hidden = false;
+    return;
+  } else if (kind === 'profile') {
+    c.innerHTML = profileHTML(profileUid) + `<button class="btn" type="button" id="pf-close" style="width:100%;margin-top:12px">Close</button>`;
+    c.querySelector('.pf-name').textContent = cleanName((net.drivers.get(profileUid) || {}).name) || 'Driver';
+    $('#pf-close').onclick = () => closeModal();
     $('#modal').hidden = false;
     return;
   } else if (kind === 'mpconfirm') {   // leader actions ask first, so nobody ends a race by accident
