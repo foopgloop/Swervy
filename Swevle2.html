@@ -340,6 +340,13 @@ li[data-uid] .nm:hover{text-decoration:underline dotted}
 .tut .tut-step{font:800 10px/1 var(--ui);letter-spacing:.12em;color:#ffd36b;display:block;margin-bottom:6px}
 .tut button{display:block;margin:6px auto 0;border:0;background:none;color:#fff;opacity:.7;font:700 11px var(--ui);text-decoration:underline;cursor:pointer}
 body.touch .tut{top:calc(150px + env(safe-area-inset-top,0px))}
+.kb-h{display:flex;align-items:baseline;gap:8px}
+.kb-h small{font:600 10px/1 var(--ui);letter-spacing:.02em;text-transform:none;color:var(--muted);font-style:italic}
+.kb-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:8px}
+.kb-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font:600 13px/1.2 var(--ui)}
+.kb-key{min-width:74px;padding:6px 10px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:#fff;font:800 11px/1 var(--mono);color:var(--ink);cursor:pointer}
+.kb-key.wait{background:var(--ink);color:#ffd36b}
+@media (max-width:640px){.kb-grid{grid-template-columns:1fr}}
 .chat{margin-top:12px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);overflow:hidden}
 .chat-log{max-height:130px;min-height:54px;overflow:auto;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
 .chat-log p{margin:0;font:500 13px/1.35 var(--ui);word-break:break-word}
@@ -3531,13 +3538,13 @@ const keys = {}, touch = {};
 
 let steerPref = 0;
 function inputNow() {
-  const l = keys.KeyA || keys.ArrowLeft || touch.left, r = keys.KeyD || keys.ArrowRight || touch.right;
+  const B = binds(), l = keys[B.left] || keys.ArrowLeft || touch.left, r = keys[B.right] || keys.ArrowRight || touch.right;
   return {
-    throttle: (keys.KeyW || keys.ArrowUp || touch.gas) ? 1 : 0,
-    brake: (keys.KeyS || keys.ArrowDown || touch.brake) ? 1 : 0,
+    throttle: (keys[B.gas] || keys.ArrowUp || touch.gas) ? 1 : 0,
+    brake: (keys[B.brake] || keys.ArrowDown || touch.brake) ? 1 : 0,
     steer: l && r ? steerPref : (l ? 1 : 0) - (r ? 1 : 0),   // both held: the one pressed last wins
-    hand: !!(keys.Space || touch.hand),
-    boost: !!(keys.ShiftLeft || keys.ShiftRight || touch.boost)
+    hand: !!(keys[B.hand] || touch.hand),
+    boost: !!(keys[B.boost] || (B.boost === 'ShiftLeft' && keys.ShiftRight) || touch.boost)
   };
 }
 let headSpot = null;
@@ -3614,6 +3621,36 @@ function restart() {
   if (!tut.on) tutStart(); else tutShow();
 }
 let raceRecovers = 0, raceFlag = '', acPos = null;
+// ---- keybinds (Settings): arrow keys always work too ----
+const BIND_DEF = { gas: 'KeyW', brake: 'KeyS', left: 'KeyA', right: 'KeyD', hand: 'Space', boost: 'ShiftLeft', recover: 'KeyR', restart: 'KeyF' };
+const BIND_NAMES = { gas: 'Throttle', brake: 'Brake / reverse', left: 'Steer left', right: 'Steer right', hand: 'Handbrake', boost: 'Boost', recover: 'Recover', restart: 'Restart' };
+const binds = () => Object.assign({}, BIND_DEF, settings.binds || {});
+const keyLabel = (c) => c.replace(/^Key/, '').replace(/^Digit/, '').replace('ShiftLeft', 'Shift').replace('ShiftRight', 'R-Shift').replace('ControlLeft', 'Ctrl').replace('AltLeft', 'Alt').replace('Arrow', '').replace('Space', 'Space');
+let bindWait = null;
+function renderBinds() {
+  const g = $('#kb-grid'); if (!g) return;
+  const B = binds(); g.textContent = '';
+  for (const k in BIND_DEF) {
+    const row = document.createElement('div'); row.className = 'kb-row';
+    const lab = document.createElement('span'); lab.textContent = BIND_NAMES[k];
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'kb-key' + (bindWait === k ? ' wait' : '');
+    b.textContent = bindWait === k ? 'Press a key…' : keyLabel(B[k]);
+    b.onclick = () => { bindWait = bindWait === k ? null : k; renderBinds(); };
+    row.append(lab, b); g.append(row);
+  }
+}
+// grabs the next key press while a bind is waiting (runs before the game's own key handling)
+addEventListener('keydown', (e) => {
+  if (!bindWait) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (e.code !== 'Escape') {
+    const B = binds();
+    for (const k in B) if (B[k] === e.code && k !== bindWait) { settings.binds = Object.assign({}, settings.binds, { [k]: B[bindWait] }); }   // swap if taken
+    settings.binds = Object.assign({}, settings.binds, { [bindWait]: e.code });
+    saveSettings();
+  }
+  bindWait = null; renderBinds();
+}, true);
 // ---- first-race tutorial: one tip at a time, each ticks off when you do it ----
 const TUT = [
   { k: 'Hold <kbd>W</kbd> or <kbd>↑</kbd> to drive', t: 'Hold ▲ to drive', done: () => Math.hypot(car.vx, car.vz) * 3.6 > 40 },
@@ -6393,9 +6430,13 @@ function openModal(kind) {
       <div class="setrow"><b>Sound</b>${seg('sound', [[true, 'On'], [false, 'Off']])}</div>
       <div class="setrow"><b>Ghosts</b>${seg('ghosts', [[true, 'Show'], [false, 'Hide']])}</div>
       <div class="setrow"><b>Camera</b>${seg('camera', [[0, 'Chase'], [1, 'Far'], [2, 'Hood']])}</div>
+      <h3 class="kb-h">Keybinds <small>added for ryland</small></h3>
+      <div class="kb-grid" id="kb-grid"></div>
+      <button class="inline-link" type="button" id="kb-reset">Reset to defaults</button>
       <p class="sub">Resolution adjusts itself to keep the game smooth, and shadows switch off if your device still struggles. Low graphics starts without shadows, at lower resolution, with less grass. The physics are the same at every setting.</p>
       <p class="credits">Made by nowdogs and <button type="button" class="fesse" id="fesse">fesse</button></p>`;
     $('#fesse').onclick = () => cheemsTap();
+    renderBinds(); $('#kb-reset').onclick = () => { settings.binds = {}; saveSettings(); renderBinds(); toast('Keybinds reset'); };
     cheemsHints();
     c.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
       const key = b.parentElement.dataset.key, raw = b.dataset.v;
@@ -6771,8 +6812,8 @@ addEventListener('keydown', (e) => {
   const racingish = state === 'racing' || state === 'countdown' || state === 'finished';
   if (CONTROL_CODES.has(e.code) && (racingish || e.code !== 'Space')) e.preventDefault();
   keys[e.code] = true;
-  if (e.code === 'KeyA' || e.code === 'ArrowLeft') steerPref = 1;
-  else if (e.code === 'KeyD' || e.code === 'ArrowRight') steerPref = -1;
+  if (e.code === binds().left || e.code === 'ArrowLeft') steerPref = 1;
+  else if (e.code === binds().right || e.code === 'ArrowRight') steerPref = -1;
   if (e.repeat) return;
   if (state === 'replay') {
     if (e.code === 'Escape' || e.code === 'Enter') exitReplay();
@@ -6808,8 +6849,8 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (!$('#modal').hidden) return;
-  if ((e.code === 'KeyF' || e.code === 'Backspace') && state !== 'loading' && state !== 'title' && !mp.active) restart();
-  else if (e.code === 'KeyR' && !paused) recover();
+  if ((e.code === binds().restart || e.code === 'Backspace') && state !== 'loading' && state !== 'title' && !mp.active) restart();
+  else if (e.code === binds().recover && !paused) recover();
   else if (e.code === 'KeyC') { camMode = (camMode + 1) % 3; settings.camera = camMode; saveSettings(); toast(['Chase camera', 'Far camera', 'Hood camera'][camMode]); }
   else if (e.code === 'KeyL') { setLights(!settings.lights); saveSettings(); toast(settings.lights ? 'Lights on' : 'Lights off'); flashCheck(); }
   else if (e.code === 'KeyG') { ghostsVisible = !ghostsVisible; settings.ghosts = ghostsVisible; saveSettings(); toast(ghostsVisible ? 'Ghosts on' : 'Ghosts off'); }
