@@ -3588,12 +3588,10 @@ function restart() {
   ensureAudio();
 }
 let raceRecovers = 0, raceFlag = '', acPos = null;
-// the fastest believable time for a course: the ultra pace car (a perfect line) minus 10%, and never
-// faster than covering its length at 60 m/s. Anything quicker is ignored on every board.
-function timeFloor(key) {
+// the fastest believable time for a course; anything quicker is ignored on every board
+function timeFloor(key) {   // only truly impossible times: the whole route at 100 m/s (twice the top speed)
   const info = key === raceKey && T ? T : courseInfo(key); if (!info) return 0;
-  const f = (info.length || 0) / 60;
-  return key === raceKey && T && T.ultra ? Math.max(f, T.ultra.t * 0.9) : f;
+  return (info.length || 0) / 100;
 }
 function runCheck(t, sp) {
   if (raceFlag) return raceFlag;
@@ -4999,7 +4997,7 @@ function secretFinish() {
   const level = secret.level || 'doge', SL = SECRETS[level];
   unlock(level === 'cheems' ? 'burgir' : 'doge');
   const t = +finishTime.toFixed(3), best = store.get(SL.best, null), first = !store.get(SL.done, false);
-  if (best == null || t < best) { store.set(SL.best, t); if (!raceFlag && t > (T.length || 0) / 60) postSecretBest(level, t); }
+  if (best == null || t < best) { store.set(SL.best, t); if (!raceFlag && t > (T.length || 0) / 100) postSecretBest(level, t); }
   if (best != null && t < best && raceRecovers > 0) unlock('foung');
   store.set(SL.done, true); if (level === 'doge') fillPresetSelect();
   if (first) { awardCoins(100, 'secret level cleared'); confetti(); }
