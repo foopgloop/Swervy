@@ -3664,12 +3664,8 @@ async function initNet() {
     }
     net.auth = fb.auth(); net.db = fb.firestore();
     initRealtime(fb);
-    net.db.collection('drivers').limit(1000).onSnapshot((snap) => {
-      const m = new Map();
-      snap.docs.forEach(d => { if (d.exists) m.set(d.id, d.data()); });
-      net.drivers = m; net.ready = true;
-      refreshBoards(); renderCcu();
-    }, () => { net.ready = false; refreshBoards(); });
+    loadDrivers(true);
+    setInterval(() => loadDrivers(), 60000);
     net.auth.onAuthStateChanged(async (u) => {
       net.uid = u ? u.uid : null; net.user = u || null;
       if (u) { await pullAccount(); if (onlineName()) net.db.doc('drivers/' + u.uid).update({ seen: Date.now() }).catch(() => {}); }
@@ -3749,6 +3745,23 @@ setInterval(() => {   // heartbeat for the online count, once a minute while sig
   if (net.db && net.uid && onlineName() && !document.hidden) net.db.doc('drivers/' + net.uid).update({ seen: Date.now() }).catch(() => {});
   renderCcu();
 }, 60000);
+// the leaderboard data: fetched, not streamed, to stay inside Firestore's free daily reads.
+// Every open game streaming every driver made each write cost one read per player online.
+let driversAt = 0, driversBusy = false;
+async function loadDrivers(force) {
+  if (!net.db || driversBusy || document.hidden) return;
+  if (!force && Date.now() - driversAt < 180000) return;
+  driversBusy = true;
+  try {
+    const snap = await net.db.collection('drivers').limit(1000).get();
+    const m = new Map(); snap.docs.forEach(d => { if (d.exists) m.set(d.id, d.data()); });
+    const me = net.uid && net.drivers.get(net.uid); if (me && !m.has(net.uid)) m.set(net.uid, me);
+    net.drivers = m; net.ready = true; driversAt = Date.now();
+    refreshBoards(); renderCcu();
+  } catch (e) { if (!net.ready) { net.ready = false; refreshBoards(); } }
+  driversBusy = false;
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadDrivers(); });
 function refreshBoards() {
   if (!T) return;
   if (!$('#menu').hidden) renderBoard($('#m-board'), $('#m-board-sub'));
@@ -3794,7 +3807,9 @@ async function postTime(key, entry) {
       const best = Object.assign({}, cur.best || {});
       best[key] = { t: entry.t, splits: entry.splits, ts: entry.ts, dev: entry.dev || MY_DEVICE };
       Object.keys(best).sort().slice(0, -40).forEach(k => delete best[k]);
-      await ref.set(Object.assign({}, cur, { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT), coins: wallet.coins, owned: wallet.owned.slice(), cos: Object.assign({}, wallet.cos) }));
+      const doc = Object.assign({}, cur, { name: onlineName() || cleanName(settings.driverName) || 'Driver', color: settings.color, joined: cur.joined || Date.now(), best, paint: typeof cur.paint === 'string' ? cur.paint : encodePaint(MY_PAINT), coins: wallet.coins, owned: wallet.owned.slice(), cos: Object.assign({}, wallet.cos) });
+      await ref.set(doc);
+      net.drivers.set(net.uid, doc); setTimeout(refreshBoards, 0);
       if (entry.g && entry.g.length) {
         const gref = net.db.doc('ghosts/' + net.uid), gs = await gref.get();
         const days = Object.assign({}, gs.exists && gs.data().days || {});
@@ -3896,6 +3911,14 @@ const mpWins = (d) => (d && d.mp && typeof d.mp.wins === 'number' ? d.mp.wins : 
 const mpRaces = (d) => (d && d.mp && typeof d.mp.races === 'number' ? d.mp.races : 0);
 
 async function mpSyncClock() {
+  if (net.rt) {
+    if (mp.clockAt && Date.now() - mp.clockAt < 120000) return;
+    try {
+      const t0 = Date.now();
+      const off = await new Promise((res, rej) => { net.rt.ref('.info/serverTimeOffset').once('value', s => res(s.val() || 0), rej); setTimeout(() => rej(new Error('timeout')), 4000); });
+      mp.off = off; mp.ping = Math.max(1, Date.now() - t0); mp.clockAt = Date.now(); return;
+    } catch (e) {}
+  }
   const ref = net.db.doc('drivers/' + net.uid);
   const t0 = Date.now();
   await ref.set({ ping: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
@@ -3905,7 +3928,7 @@ async function mpSyncClock() {
   if (ping && ping.toMillis) mp.off = ping.toMillis() - (t0 + t1) / 2;
   mp.ping = Math.round(t1 - t0);
 }
-const MP_STALE = 9000;
+const MP_STALE = 16000;
 // ---- parties: create one (locked with a password by default, pick a course) or join one from the list ----
 async function pwHash(pw) {
   const txt = 'swerrvle|' + String(pw || '');
@@ -4020,7 +4043,7 @@ async function mpEnterLobby(id) {
       net.db.doc('lobbies/' + id).update({ disband: true }).catch(() => {});
       clearInterval(mp.timer); mpExit(); toast('The party leader left, so the party closed'); return;
     }
-    if ((beat += 250) >= 3000) {   // heartbeat so a closed tab doesn't hold a spot, and our ping for the list
+    if ((beat += 250) >= 6000) {   // heartbeat so a closed tab doesn't hold a spot, and our ping for the list
       beat = 0;
       const t0 = Date.now();
       const upd = { ['players.' + net.uid + '.seen']: Math.round(srvNow()) };
@@ -4177,7 +4200,7 @@ async function countParties() {
     el.title = hosts.size + (hosts.size === 1 ? ' party' : ' parties') + ' open right now';
   } catch (e) {}
 }
-setInterval(countParties, 20000); setTimeout(countParties, 4000);
+setInterval(countParties, 120000); setTimeout(countParties, 4000);
 async function renderPartyList() {
   const list = $('#mpj-list'), sub = $('#mpj-sub');
   if (!list || !net.db) return;
@@ -5127,7 +5150,8 @@ setInterval(() => {   // push records to the account now and then, not every fra
   if (!achDirty || !net.db || !net.uid || !onlineName()) return;
   achDirty = false;
   netQueue(() => net.db.doc('drivers/' + net.uid).update({ stats: Object.assign({}, stats), ach: [...achGot] })).catch(() => {});
-}, 20000);
+}, 300000);
+addEventListener('pagehide', () => { if (achDirty && net.db && net.uid && onlineName()) net.db.doc('drivers/' + net.uid).update({ stats: Object.assign({}, stats), ach: [...achGot] }).catch(() => {}); });
 function unlock(id) {
   if (achGot.has(id)) return;
   const a = ACHS.find(x => x[0] === id); if (!a) return;
@@ -5971,7 +5995,7 @@ function openMenu() {
 function closeMenu() { $('#menu').hidden = true; paused = false; last = performance.now(); }
 function showTitle() {
   if (mp.active || mp.spec) return;
-  state = 'title'; paused = false; closeMenu(); closeModal(); $('#title').classList.remove('mp-pre'); countParties();
+  state = 'title'; paused = false; closeMenu(); closeModal(); $('#title').classList.remove('mp-pre');
   $('#hud').hidden = true; $('#touch').hidden = true; $('#finish').hidden = true;
   car = spawnCar(); orbitA = car.h + Math.PI * 0.75;
   ghostObjs.forEach(g => g.mesh.visible = false);
@@ -6537,6 +6561,7 @@ function openModal(kind) {
     setTimeout(() => input.focus(), 0);
     return;
   } else if (kind === 'board') {
+    loadDrivers();   // refresh if it's been a few minutes
     c.innerHTML = `<h2>Leaderboard</h2>
       <div class="seg mb-tabs" id="mb-tabs"><button data-v="today" aria-pressed="${boardTab === 'today'}">Today</button><button data-v="rank" aria-pressed="${boardTab === 'rank'}">Rankings</button><button data-v="mp" aria-pressed="${boardTab === 'mp'}">Multiplayer</button><button data-v="secret" aria-pressed="${boardTab === 'secret'}">Secret</button></div>
       <p class="sub" id="mb-sub"></p><ol class="board${boardTab !== 'today' ? ' rank' : ''}" id="mb-list"></ol>`;
