@@ -331,6 +331,7 @@ body.touch #race-chat{top:calc(200px + env(safe-area-inset-top,0px))}
 .chat-bar .btn{min-height:0;border:0;border-radius:0;padding:0 14px;font-size:11px}
 .mp-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:8px;border-radius:9px;background:#ffc93c;color:#3a2a00;font:800 10px/1 var(--ui)}
 #title.mp-pre .driver,#title.mp-pre #b-race,#title.mp-pre #b-weekly,#title.mp-pre .row2,#title.mp-pre .yt,#title.mp-pre .key-legend,#title.mp-pre .foot,#title.mp-pre .t-more,#title.mp-pre #t-next,#title.mp-pre .ccu{display:none!important}
+.notice{margin:0 0 -4px;padding:8px 10px;border-radius:6px;background:#fff4d6;border:1px solid #f0c95a;color:#5a4300;font:600 12px/1.4 var(--ui)}
 .cheems-spot,.fesse{position:relative}
 /* a small Cheems hiding behind Settings (and then behind "fesse"), peeking out now and then until you find him */
 .cheems-hint{position:absolute;right:-6px;bottom:60%;width:34px;height:34px;pointer-events:none;z-index:-1;transform-origin:bottom center;animation:cheemsPeek 4.5s ease-in-out infinite}
@@ -531,6 +532,7 @@ body.touch .key-legend{display:none}
 
 <section id="title" class="panel card" aria-labelledby="t-name">
   <span class="ccu" id="t-ccu" hidden title="Players online right now"><i></i> 0 online</span>
+  <p class="notice" id="t-notice" hidden>⚠️ The leaderboard is over its daily limit, so times may not save until tomorrow. You can still race; your times are kept on this device.</p>
   <p class="eyebrow" id="t-eyebrow">Today's race</p>
   <h1 id="t-name">Building the road…</h1>
   <dl class="facts">
@@ -3758,7 +3760,7 @@ async function loadDrivers(force) {
     const me = net.uid && net.drivers.get(net.uid); if (me && !m.has(net.uid)) m.set(net.uid, me);
     net.drivers = m; net.ready = true; driversAt = Date.now();
     refreshBoards(); renderCcu();
-  } catch (e) { if (!net.ready) { net.ready = false; refreshBoards(); } }
+  } catch (e) { if (e && e.code === 'resource-exhausted') showQuotaNotice(); if (!net.ready) { net.ready = false; refreshBoards(); } }
   driversBusy = false;
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) loadDrivers(); });
@@ -3769,9 +3771,18 @@ function refreshBoards() {
   refreshSigns();
   if (state === 'title') renderTitle();
 }
+// a notice on the title card while Firestore's daily quota is used up: shown on quota errors, and until
+// the date below (the day the quota ran out). It remembers the day it was last seen so it goes away by itself.
+const QUOTA_NOTICE_UNTIL = '2026-09-29';
+function showQuotaNotice() { try { store.set('ds:quotaDay', dateKey(new Date())); } catch (e) {} const n = $('#t-notice'); if (n) n.hidden = false; }
+function quotaNoticeCheck() {
+  const n = $('#t-notice'); if (!n) return;
+  const today = dateKey(new Date());
+  n.hidden = !(today < QUOTA_NOTICE_UNTIL || store.get('ds:quotaDay', '') === today);
+}
 function netError(e) {
   if (e && e.code === 'permission-denied') toast(net.uid ? 'The leaderboard refused that save' : 'Sign in to post to the leaderboard');
-  else if (e && e.code === 'resource-exhausted') toast('The leaderboard is full');
+  else if (e && e.code === 'resource-exhausted') { showQuotaNotice(); toast('The leaderboard is busy. Your time is saved on this device.'); }
   else toast('Could not reach the leaderboard. Try again.');
 }
 async function saveDriverName(name) {
@@ -6014,7 +6025,7 @@ function renderTitle() {
   $('#t-date').textContent = sec ? 'Secret' : prettyDate(raceKey);
   $('#t-len').textContent = (T.length / 1000).toFixed(2) + ' km';
   const runs = sec ? [] : getRuns(raceKey), secBest = sec ? store.get(sec.best, null) : null;
-  cheemsHints();
+  cheemsHints(); quotaNoticeCheck();
   $('#t-best').textContent = sec ? (secBest != null ? fmt(secBest) : '—') : runs.length ? fmt(runs[0].t) : '—';
   const bar = $('#t-strip'); bar.innerHTML = '';
   for (const r of T.runs) { const i = document.createElement('i'); i.className = 's-' + SURF_NAMES[r.s]; i.style.flexGrow = r.to - r.from + 1; bar.append(i); }
