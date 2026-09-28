@@ -3749,9 +3749,9 @@ async function initNet() {
       fb.initializeApp(await r.json());
     }
     net.auth = fb.auth(); net.db = fb.firestore();
+    try { await net.db.enablePersistence({ synchronizeTabs: true }); } catch (e) {}   // offline cache (fails quietly in private windows)
     initRealtime(fb);
     loadDrivers(true);
-    setInterval(() => loadDrivers(), 60000);
     net.auth.onAuthStateChanged(async (u) => {
       net.uid = u ? u.uid : null; net.user = u || null;
       if (u) { await pullAccount(); if (onlineName()) net.db.doc('drivers/' + u.uid).update({ seen: Date.now() }).catch(() => {}); }
@@ -3834,20 +3834,23 @@ setInterval(() => {   // heartbeat for the online count, once a minute while sig
 // the leaderboard data: fetched, not streamed, to stay inside Firestore's free daily reads.
 // Every open game streaming every driver made each write cost one read per player online.
 let driversAt = 0, driversBusy = false;
-async function loadDrivers(force) {
-  if (!net.db || driversBusy || document.hidden) return;
-  if (!force && Date.now() - driversAt < 180000) return;
-  driversBusy = true;
-  try {
-    const snap = await net.db.collection('drivers').limit(1000).get();
+// the drivers list: one live listener while the tab is visible. With the offline cache it only pays for
+// drivers that changed since last time, which (with writes kept rare) is far cheaper than re-fetching everyone.
+// It detaches when the tab is hidden, so background tabs cost nothing.
+let driversUnsub = null;
+function loadDrivers() {
+  if (!net.db || driversUnsub || document.hidden) return;
+  driversUnsub = net.db.collection('drivers').limit(1000).onSnapshot((snap) => {
     const m = new Map(); snap.docs.forEach(d => { if (d.exists) m.set(d.id, d.data()); });
-    const me = net.uid && net.drivers.get(net.uid); if (me && !m.has(net.uid)) m.set(net.uid, me);
-    net.drivers = m; net.ready = true; driversAt = Date.now();
+    net.drivers = m; net.ready = true;
     refreshBoards(); renderCcu();
-  } catch (e) { if (e && e.code === 'resource-exhausted') showQuotaNotice(); if (!net.ready) { net.ready = false; refreshBoards(); } }
-  driversBusy = false;
+  }, (e) => { if (e && e.code === 'resource-exhausted') showQuotaNotice(); driversUnsub = null; if (!net.ready) refreshBoards(); });
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) loadDrivers(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (driversUnsub) { driversUnsub(); driversUnsub = null; } }
+  else loadDrivers();
+});
+
 function refreshBoards() {
   if (!T) return;
   if (!$('#menu').hidden) renderBoard($('#m-board'), $('#m-board-sub'));
@@ -4180,7 +4183,7 @@ async function mpNextRound() {
 // parties left behind by a reload or a closed tab: delete the ones this player hosts that aren't the current one
 async function mpClearOldParties(keep) {
   try {
-    const snap = await net.db.collection('lobbies').where('host', '==', net.uid).get();
+    const snap = await net.db.collection('lobbies').where('host', '==', net.uid).limit(20).get();
     snap.docs.forEach(d => {
       if (d.id === mp.id || d.id === keep) return;
       const L = d.data() || {}, now = srvNow();
