@@ -582,7 +582,7 @@ body.touch .key-legend{display:none}
   <div class="row2"><button class="btn dark" id="f-replay">Watch replay</button><button class="btn" id="f-share">Copy result</button></div>
   <button class="btn" data-open="board">Leaderboard</button>
   <textarea id="f-sharetext" readonly hidden aria-label="Result text"></textarea>
-  <nav class="foot"><button class="link" id="f-info">Route info</button><button class="link" data-open="past">Past races</button></nav>
+  <nav class="foot"><button class="link" id="f-info">Back to title</button><button class="link" data-open="past">Past races</button></nav>
 </section>
 
 <div id="menu" class="overlay" hidden>
@@ -3528,6 +3528,11 @@ const COAST = { throttle: 0, brake: 1, steer: 0, hand: false };
 function simStep() {
   const inp = state === 'racing' ? inputNow() : state === 'finished' ? COAST : NO_INPUT;
   stepCar(car, inp, DT, true);
+  if (state === 'racing') {   // teleports (compared with where the car was after the last step) and impossible speeds
+    if (acPos && Math.hypot(car.x - acPos.x, car.z - acPos.z) > 2.5) raceFlag = raceFlag || 'teleport';
+    if (Math.hypot(car.vx, car.vz) > 80) raceFlag = raceFlag || 'speed';
+    acPos = { x: car.x, z: car.z };
+  } else acPos = null;
   if (mp.active && !mp.noCollide && (state === 'racing' || state === 'finished')) mpCollide(car);
   if (T.secret) secretStep();
   if (state === 'racing' || state === 'finished') clock += DT;
@@ -3571,7 +3576,7 @@ function restart() {
   $('#split').hidden = true;
   car = spawnCar();
   state = 'countdown'; countdownT = 2.4; lastCount = 0; acc = 0;
-  raceTime = 0; clock = 0; finishTime = null; raceRecovers = 0; nextCp = 0; lastCpIdx = T.spawnIdx; splits = []; rec = []; recCounter = 0;
+  raceTime = 0; clock = 0; finishTime = null; raceRecovers = 0; raceFlag = ''; nextCp = 0; lastCpIdx = T.spawnIdx; splits = []; rec = []; recCounter = 0;
   gateMats.forEach(m => m.color.set('#ffffff'));
   gateObjs.forEach(o => { o.flash = 0; });
   if (T.burgers) T.burgers.forEach(b => { b.got = false; if (b.mesh) b.mesh.visible = true; });
@@ -3582,10 +3587,23 @@ function restart() {
   if (toBeat) $('#rival-t').textContent = fmt(toBeat.t) + ' · ' + toBeat.name;
   ensureAudio();
 }
-let raceRecovers = 0;
+let raceRecovers = 0, raceFlag = '', acPos = null;
+// the fastest believable time for a course: the ultra pace car (a perfect line) minus 10%, and never
+// faster than covering its length at 60 m/s. Anything quicker is ignored on every board.
+function timeFloor(key) {
+  const info = key === raceKey && T ? T : courseInfo(key); if (!info) return 0;
+  const f = (info.length || 0) / 60;
+  return key === raceKey && T && T.ultra ? Math.max(f, T.ultra.t * 0.9) : f;
+}
+function runCheck(t, sp) {
+  if (raceFlag) return raceFlag;
+  if (t < timeFloor(raceKey)) return 'too fast';
+  for (let i = 1; i < sp.length; i++) if (!(sp[i] > sp[i - 1])) return 'splits';
+  return '';
+}
 function recover() {
   if (state !== 'racing') return;
-  raceRecovers++;
+  raceRecovers++; acPos = null;   // a recover is a legal jump
   placeCar(car, Math.min(T.N - 20, lastCpIdx + 2));
   camH = car.h;
 }
@@ -3607,7 +3625,9 @@ function finishRace() {
   refreshSigns();
   const rank = runs.indexOf(entry) + 1;
   if (rank === 1 && !ghostSel.includes('me')) ghostSel.push('me');
-  const posting = postTime(raceKey, entry);
+  const why = runCheck(entry.t, entry.splits);
+  if (why) { entry.flag = why; console.warn('Swerrvle: run not posted (' + why + ')'); }
+  const posting = why ? Promise.resolve('flagged') : postTime(raceKey, entry);
   setTimeout(() => { if (state === 'finished') showFinish(entry, prevBest, rank, posting); }, 1100);
 }
 
@@ -3617,7 +3637,18 @@ function finishRace() {
 // ghosts/<uid>:  { days: { "YYYY-MM-DD": { hz, f: [x,y,z,h,pitch,roll, ...] } } }
 const net = { db: null, rt: null, ccu: 0, auth: null, user: null, uid: null, ready: false, writable: true, drivers: new Map(), q: Promise.resolve() };
 const ghostCache = {};
-const cleanName = (s) => String(s == null ? '' : s).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 16);
+// ---- word filter: names and chat. Letters are normalised (leetspeak, repeats, spacing) before matching ----
+const BAD_ANY = ['fuck', 'shit', 'cunt', 'nigg', 'bitch', 'whore', 'slut', 'porn', 'pussy', 'penis', 'vagina', 'asshole', 'bastard', 'retard', 'wank', 'jizz', 'twat', 'nazi', 'hitler', 'boobs'];
+const BAD_WORD = ['ass', 'fag', 'fags', 'faggot', 'cum', 'sex', 'kys', 'tit', 'tits', 'hoe', 'hoes', 'nig', 'nga', 'fk', 'fck', 'dick', 'dicks', 'cock', 'cocks', 'rape', 'raped', 'rapist'];
+function normWord(w) {
+  return String(w).toLowerCase().replace(/[0@4]/g, m => m === '0' ? 'o' : 'a').replace(/[1!|]/g, 'i').replace(/3/g, 'e').replace(/[5$]/g, 's').replace(/7/g, 't').replace(/8/g, 'b')
+    .replace(/[^a-z]/g, '').replace(/(.)\1+/g, '$1');
+}
+const isBad = (w) => { const n = normWord(w); return !!n && (BAD_ANY.some(b => n.includes(b.replace(/(.)\1+/g, '$1'))) || BAD_WORD.includes(n)); };
+// true if the whole text (squashed together, to catch "f u c k") or any word in it is bad
+const hasBad = (t) => BAD_ANY.some(b => normWord(t).includes(b.replace(/(.)\1+/g, '$1'))) || String(t).split(/[\s_.\-]+/).some(isBad);
+const censor = (t) => { const c = String(t).split(/(\s+)/).map(w => /\s/.test(w) || !isBad(w) ? w : w[0] + '*'.repeat(Math.max(1, w.length - 1))).join(''); return hasBad(c.replace(/\*/g, '')) ? '[message hidden]' : c; };   // spaced-out swears hide the whole message
+const cleanName = (s) => { const n = String(s == null ? '' : s).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 16); return hasBad(n) ? 'Driver' : n; };
 const cleanColor = (s) => /^#[0-9a-f]{6}$/i.test(s) ? s : '#ffd36b';
 const onlineName = () => net.ready && net.drivers.get(net.uid) ? cleanName(net.drivers.get(net.uid).name) : '';
 const myName = () => onlineName() || cleanName(settings.driverName);
@@ -3818,7 +3849,7 @@ function onlineRows() {
   if (boardVoid(raceKey)) return out;
   for (const [uid, d] of net.drivers) {
     const b = d && d.best && d.best[raceKey];
-    if (!b || typeof b.t !== 'number' || !(b.t > 5) || !setOnTheDay(raceKey, b)) continue;
+    if (!b || typeof b.t !== 'number' || !(b.t > 5) || !setOnTheDay(raceKey, b) || b.t < timeFloor(raceKey)) continue;
     out.push({ uid, name: cleanName(d.name) || 'Driver', color: cleanColor(d.color), t: b.t, dev: typeof b.dev === 'string' ? b.dev : null, splits: Array.isArray(b.splits) ? b.splits : null, me: uid === net.uid });
   }
   return out.sort((a, b) => a.t - b.t);
@@ -3834,7 +3865,7 @@ function standings() {
     if (!best || typeof best !== 'object') continue;
     for (const k in best) {
       const b = best[k];
-      if (boardVoid(k) || !b || typeof b.t !== 'number' || !(b.t > 5) || !setOnTheDay(k, b)) continue;
+      if (boardVoid(k) || !b || typeof b.t !== 'number' || !(b.t > 5) || !setOnTheDay(k, b) || b.t < timeFloor(k)) continue;
       (days[k] || (days[k] = [])).push({ uid, t: b.t });
     }
   }
@@ -4561,7 +4592,7 @@ function renderRaceChat() {
   for (const m of msgs) {
     const p = document.createElement('p'); p.className = (m.u === net.uid ? 'me' : '') + (now - m.w > 12000 ? ' old' : '');
     const b = document.createElement('b'); b.textContent = (cleanName(m.n) || 'Driver') + ': ';
-    p.append(b, document.createTextNode(String(m.t || '').slice(0, 120))); box.append(p);
+    p.append(b, document.createTextNode(censor(String(m.t || '').slice(0, 120)))); box.append(p);
   }
 }
 setInterval(renderRaceChat, 500);
@@ -4575,12 +4606,17 @@ function renderChat(force) {
   for (const m of msgs) {
     const p = document.createElement('p'); if (m.u === net.uid) p.className = 'me';
     const b = document.createElement('b'); b.textContent = (cleanName(m.n) || 'Driver') + ': ';
-    p.append(b, document.createTextNode(String(m.t || '').slice(0, 120))); log.append(p);
+    p.append(b, document.createTextNode(censor(String(m.t || '').slice(0, 120)))); log.append(p);
   }
   log.scrollTop = log.scrollHeight;
 }
+const chatSent = [];
 async function mpSay(text) {
   if (!mp.id || !net.db) return;
+  const now = Date.now();   // no spamming: one message every 1.5 s and at most 5 in 15 s
+  while (chatSent.length && now - chatSent[0] > 15000) chatSent.shift();
+  if ((chatSent.length && now - chatSent[chatSent.length - 1] < 1500) || chatSent.length >= 5) { toast('Slow down a little'); return; }
+  chatSent.push(now); text = censor(text);
   const msg = { u: net.uid, n: onlineName() || 'Driver', t: text.slice(0, 120), w: Math.round(srvNow()) };
   const ref = net.db.doc('lobbies/' + mp.id);
   try { await net.db.runTransaction(async (tx) => { const s = await tx.get(ref); if (!s.exists) return; const chat = (s.data().chat || []).concat([msg]).slice(-40); tx.update(ref, { chat }); }); }
@@ -4963,7 +4999,7 @@ function secretFinish() {
   const level = secret.level || 'doge', SL = SECRETS[level];
   unlock(level === 'cheems' ? 'burgir' : 'doge');
   const t = +finishTime.toFixed(3), best = store.get(SL.best, null), first = !store.get(SL.done, false);
-  if (best == null || t < best) { store.set(SL.best, t); postSecretBest(level, t); }
+  if (best == null || t < best) { store.set(SL.best, t); if (!raceFlag && t > (T.length || 0) / 60) postSecretBest(level, t); }
   if (best != null && t < best && raceRecovers > 0) unlock('foung');
   store.set(SL.done, true); if (level === 'doge') fillPresetSelect();
   if (first) { awardCoins(100, 'secret level cleared'); confetti(); }
@@ -6090,6 +6126,7 @@ function renderRankings(list, sub) {
 function renderBoardNote(entry, posting) {
   const el = $('#f-board-note');
   el.textContent = '';
+  if (entry && entry.flag) { el.textContent = '⚠️ This run looked unusual, so it wasn\'t posted to the leaderboard. It\'s saved on this device.'; return; }
   if (!net.db) { el.textContent = 'Saved on this device.'; return; }
   if (!secret.active && !boardOpen(raceKey)) { el.textContent = '🔒 This race is over, so its leaderboard is final. Your time is saved on this device.'; return; }
   if (!onlineName()) {
@@ -6485,6 +6522,7 @@ function openModal(kind) {
       const name = cleanName(input.value).replace(/\s+/g, ' ');
       const err = $('#acc-err');
       if (!/^[\p{L}\p{N} _.\-]{2,16}$/u.test(name)) { err.textContent = 'Use 2 to 16 letters, numbers, spaces, dots, dashes or underscores.'; input.focus(); return; }
+      if (hasBad(input.value)) { err.textContent = 'That name isn\'t allowed. Try another one.'; input.focus(); return; }
       const taken = [...net.drivers].some(([uid, d]) => uid !== net.uid && cleanName(d && d.name).toLowerCase() === name.toLowerCase());
       if (taken) { err.textContent = `${name} is taken. Try another name.`; input.focus(); return; }
       $('#acc-save').disabled = true; err.textContent = '';
