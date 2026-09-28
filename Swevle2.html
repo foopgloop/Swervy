@@ -3771,14 +3771,12 @@ function refreshBoards() {
   refreshSigns();
   if (state === 'title') renderTitle();
 }
-// a notice on the title card while Firestore's daily quota is used up: shown on quota errors, and until
-// the date below (the day the quota ran out). It remembers the day it was last seen so it goes away by itself.
-const QUOTA_NOTICE_UNTIL = '2026-09-29';
+// a notice on the title card while Firestore's daily quota is used up: shown only after a quota error that day
 function showQuotaNotice() { try { store.set('ds:quotaDay', dateKey(new Date())); } catch (e) {} const n = $('#t-notice'); if (n) n.hidden = false; }
 function quotaNoticeCheck() {
   const n = $('#t-notice'); if (!n) return;
   const today = dateKey(new Date());
-  n.hidden = !(today < QUOTA_NOTICE_UNTIL || store.get('ds:quotaDay', '') === today);
+  n.hidden = store.get('ds:quotaDay', '') !== today;   // only on a day a save or load actually hit the limit
 }
 function netError(e) {
   if (e && e.code === 'permission-denied') toast(net.uid ? 'The leaderboard refused that save' : 'Sign in to post to the leaderboard');
